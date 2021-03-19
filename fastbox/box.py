@@ -5,10 +5,11 @@ Generate a 3D box in real space with some power spectrum.
 """
 import numpy as np
 import scipy.integrate
+import scipy.ndimage
+import scipy.interpolate
 import pyccl as ccl
 import pylab as plt
 from numpy import fft
-import sys
 
 # Speed of light (m/s)
 C = 299792458.
@@ -123,36 +124,6 @@ class CosmoBox(object):
                                     + (self.Kz/self.Lz)**2.)
     
     
-    def apply_transfer_fn(self, field_k, transfer_fn):
-        """
-        Apply a Fourier-space transfer function and transform back to real space.
-        
-        Parameters
-        ----------
-        field_k : ndarray
-            Field in Fourier space (3D array), with Fourier modes self.kx,ky,kz.
-            
-        transfer_fn : callable
-            Function that modulates the Fourier-space field. Must have 
-            call signature `transfer_fn(k_perp, k_par)`.
-        
-        Returns
-        -------
-        field_x : ndarray
-            Real-space field that has had the transfer function applied.
-        """
-        # Get 2D Fourier modes
-        #fac = (2.*np.pi/self.L)
-        k_perp = 2.*np.pi * np.sqrt((self.Kx/self.Lx)**2. + (self.Ky/self.Ly)**2.)
-        k_par = 2.*np.pi * self.Kz / self.Lz
-        
-        # Apply transfer function, perform inverse FFT, and return
-        dk = field_k * transfer_fn(k_perp, k_par)
-        dk = np.nan_to_num(dk)
-        dx = fft.ifftn(dk)
-        return dx
-    
-    
     def realise_density(self):
         """
         Create realisation of the matter power spectrum by randomly sampling 
@@ -233,7 +204,121 @@ class CosmoBox(object):
         self.phi_k = self.delta_k / self.k**2.
         self.phi_k[0,0,0] = 0.
         #self.phi_x = fft.ifftn(self.phi_k).real # FIXME: Is this correct?
+    
+    
+    def apply_transfer_fn(self, field_k, transfer_fn):
+        """
+        Apply a Fourier-space transfer function and transform back to real space.
+        
+        Parameters
+        ----------
+        field_k : ndarray
+            Field in Fourier space (3D array), with Fourier modes self.kx,ky,kz.
+            
+        transfer_fn : callable
+            Function that modulates the Fourier-space field. Must have 
+            call signature `transfer_fn(k_perp, k_par)`.
+        
+        Returns
+        -------
+        field_x : ndarray
+            Real-space field that has had the transfer function applied.
+        """
+        # Get 2D Fourier modes
+        #fac = (2.*np.pi/self.L)
+        k_perp = 2.*np.pi * np.sqrt((self.Kx/self.Lx)**2. + (self.Ky/self.Ly)**2.)
+        k_par = 2.*np.pi * self.Kz / self.Lz
+        
+        # Apply transfer function, perform inverse FFT, and return
+        dk = field_k * transfer_fn(k_perp, k_par)
+        dk = np.nan_to_num(dk)
+        dx = fft.ifftn(dk)
+        return dx
+    
+    
+    def redshift_space_density(self, delta_x=None, velocity_z=None, 
+                               method='linear'):
+        """
+        Remap the real-space density field to redshift-space using the line-of-
+        sight velocity field.
+        
+        Parameters
+        ----------
+        delta_x : array_like, optional
+            Real-space density field.
+        
+        velocity_z : array_like, optional
+            Velocity in the z (line-of-sight) direction.
+        
+        method : str, optional
+            Interpolation method to use when performing remapping, using the 
+            `scipy.interpolate.griddata` function. Default: 'linear'.
+        """
+        # Expansion rate (km/s/Mpc)
+        Hz = 100.*self.cosmo['h']*ccl.h_over_h0(self.cosmo, self.scale_factor)
 
+        # Empty redshift-space array
+        delta_s = np.zeros_like(delta_x) - 1. # Default value is -1 (void)
+        
+        # Loop over x and y pixels
+        for i in range(delta_x.shape[0]):
+            for j in range(delta_x.shape[1]):
+                
+                # Redshift-space z coordinate (negative sign as we will map 
+                # from real coord to redshift-space coord)
+                s = self.z - velocity_z[i,j,:] / Hz
+                
+                # Apply periodic boundary conditions
+                length_z = np.max(self.z) - np.min(self.z)
+                s = (s - np.min(self.z)) % (length_z) + np.min(self.z)
+                
+                # Remap to redshift-space (on regular grid in redshift-space 
+                # with same grid points as in 'z' array)
+                delta_s[i,j,:] = scipy.interpolate.griddata(points=(s,), 
+                                                            values=delta_x[i,j,:], 
+                                                            xi=(self.z), 
+                                                            method=method,
+                                                            fill_value=-1.)
+        return delta_s
+    
+    
+    
+    def redshift_space_density_slow(self, delta_x=None, velocity_z=None, 
+                               method='nearest'):
+        """
+        Remap the real-space density field to redshift-space using the line-of-
+        sight velocity field.
+        
+        Parameters
+        ----------
+        delta_x : array_like, optional
+            Real-space density field.
+        
+        velocity_z : array_like, optional
+            Velocity in the z (line-of-sight) direction.
+        
+        method : str, optional
+            Interpolation method to use when performing remapping, using the 
+            `scipy.interpolate.griddata` function. Default: 'linear'.
+        """
+        # Expansion rate (km/s/Mpc)
+        Hz = 100.*self.cosmo['h']*ccl.h_over_h0(self.cosmo, self.scale_factor)
+        
+        # Real-space coordinates
+        _x, _y, _z = np.meshgrid(self.x, self.y, self.z)
+        
+        # Redshift-space z coordinate
+        s = _z + velocity_z / Hz
+        
+        # Remap to redshift-space
+        delta_s = scipy.interpolate.griddata(
+                            points=(_x.flatten(), _y.flatten(), s.flatten()), 
+                            values=delta_x.flatten(), 
+                            xi=(_x.flatten(), _y.flatten(), _z.flatten()), 
+                            method='linear')
+        delta_s = delta_s.reshape(delta_x.shape)
+        return delta_s
+        
     
     ############################################################################
     # Output quantities related to the realisation
@@ -505,98 +590,4 @@ class CosmoBox(object):
         s2 = np.sum(self.delta_k*np.conj(self.delta_k)).real
         print("Parseval test:", s1/s2, "(should be 1.0)")
 
-
-if __name__ == '__main__':
-    
-    # Gaussian box
-    np.random.seed(10)
-    box = CosmoBox(cosmo=default_cosmo, box_scale=(1e3, 1e3, 1e2), nsamp=128, realise_now=False)
-    box.realise_density()
-    
-    re_k, re_pk, re_stddev = box.binned_power_spectrum()
-    th_k, th_pk = box.theoretical_power_spectrum()
-    
-    #plt.matshow(box.delta_x[0], vmin=-1., vmax=2., cmap='cividis')
-    #plt.title("Density field")
-    #plt.colorbar()
-    
-    # Gaussian box with beam smoothing and foreground cut
-    transfer_fn = lambda k_perp, k_par: \
-        (1. - np.exp(-0.5 * (k_par/0.001)**2.)) \
-        * np.exp(-0.5 * (k_perp/0.1)**2.)
-    delta_smoothed = box.apply_transfer_fn(box.delta_k, transfer_fn=transfer_fn)
-    
-    
-    plt.matshow(delta_smoothed[:,:,0].real, vmin=-1., vmax=2., cmap='cividis')
-    plt.title("Density field (smoothed, x,y)")
-    plt.colorbar()
-    #plt.show()
-    
-    plt.matshow(delta_smoothed[:,0,:].real, vmin=-1., vmax=2., cmap='cividis')
-    plt.title("Density field (smoothed, x,z)")
-    plt.colorbar()
-    #plt.show()
-    
-    # Log-normal box
-    smre_k, smre_pk, smre_stddev \
-        = box.binned_power_spectrum(delta_k=fft.fftn(delta_smoothed))
-    
-    # Plot some stuff
-    fig = plt.figure()
-    plt.plot(th_k, th_pk, 'b-', label="Theoretical P(k)")
-    #plt.errorbar(re_k, re_pk, yerr=re_stddev, fmt=".", color='r')
-    plt.plot(re_k, re_pk, 'r.', label="P(k) from density field")
-    plt.plot(smre_k, smre_pk, 'gx', label="P(k) from smoothed field")
-    plt.xscale('log')
-    plt.yscale('log')
-    plt.legend(loc='lower left', frameon=False)
-    plt.ylim((1e0, 1e5))
-    plt.show()
-    
-    
-    sys.exit(0)
-    
-
-    # Log-normal box
-    delta_ln = box.lognormal(box.delta_x)
-    lnre_k, lnre_pk, lnre_stddev \
-        = box.binned_power_spectrum(delta_k=fft.fftn(delta_ln))
-
-    plt.matshow(delta_ln[0], vmin=-1., vmax=2., cmap='cividis')
-    plt.title("Log-normal density")
-    plt.colorbar()
-
-
-    # Tests
-    box.test_sampling_error()
-    box.test_parseval()
-
-
-    # Plot some stuff
-    fig = plt.figure()
-    plt.plot(th_k, th_pk, 'b-', label="Theoretical P(k)")
-    #plt.errorbar(re_k, re_pk, yerr=re_stddev, fmt=".", color='r')
-    plt.plot(re_k, re_pk, 'r.', label="P(k) from density field")
-    plt.plot(lnre_k, lnre_pk, 'gx', label="P(k) from log-normal")
-    plt.xscale('log')
-    plt.yscale('log')
-    plt.legend(loc='lower left', frameon=False)
-
-    """
-    plt.subplot(212)
-
-    def dx(R):
-        dk = np.reshape(box.delta_k, np.shape(box.k))
-        dk = dk * box.window1(box.k, R/box.cosmo['h'])
-        dk = np.nan_to_num(dk)
-        dx = fft.ifftn(dk)
-        return dx
-
-    dx2 = dx(8.0)
-    dx3 = dx(100.0)
-
-    plt.hist(dx2.flatten(), bins=100, alpha=0.2)
-    plt.hist(dx3.flatten(), bins=100, alpha=0.2)
-    """
-    plt.show()
 
