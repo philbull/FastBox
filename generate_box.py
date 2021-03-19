@@ -10,6 +10,9 @@ import pylab as plt
 from numpy import fft
 import sys
 
+# Speed of light (m/s)
+C = 299792458.
+
 # Define default cosmology
 default_cosmo = dict(Omega_c=0.25, Omega_b=0.05,
                      h=0.7, n_s=0.95, sigma8=0.8,
@@ -18,7 +21,8 @@ default_cosmo = dict(Omega_c=0.25, Omega_b=0.05,
 
 class CosmoBox(object):
 
-    def __init__(self, cosmo, box_scale=1e3, nsamp=32, realise_now=True):
+    def __init__(self, cosmo, box_scale=1e3, nsamp=32, redshift=0., 
+                 line_freq=1420.405752, realise_now=True):
         """
         Initialise a box containing a matter distribution with a given power 
         spectrum.
@@ -29,11 +33,22 @@ class CosmoBox(object):
             Cosmology object. If passed as a dictionary, this will be used to 
             create a new CCL Cosmology object.
             
-        box_scale : float, optional
-            The side length (in Mpc) of the cubic box. Default: 1e3 (Mpc).
+        box_scale : float or tuple, optional
+            The side length (in Mpc) of the cubic box. If passed as a tuple, 
+            this will specify the scales in the x, y, and z Cartesian 
+            directions separately. Default: 1e3 (Mpc).
         
         nsamp : int, optional
             The number of grid points per dimension. Default: 32.
+        
+        redshift : float, optional
+            The redshift to place the box at. This affects the redshift at 
+            which the power spectrum is evaluated when generating the fields. 
+            Default: 0.
+        
+        line_freq : float, optional
+            Frequency of the emission line used as the redshift reference, in 
+            MHz. Default: 1420.4 MHz (21cm line)
         
         realise_now : bool, optional
             If True, generate realisations of the density, velocity, and 
@@ -45,23 +60,41 @@ class CosmoBox(object):
             raise TypeError("`cosmo` must be a CCL Cosmology object or dict.")
         self.cosmo = cosmo # Cosmological parameters, required by Cosmolopy fns.
         
-        # Define grid coordinates along one dimension
-        scale = box_scale
-        self.x = np.linspace(-scale, scale, nsamp) # in Mpc
-        self.N = self.x.size # Grid points
-        self.L = self.x[-1] - self.x[0] # Linear size of box
+        # Number of sample points per dimension
+        self.N = nsamp
+        
+        # Box redshift and emission line reference
+        self.redshift = redshift
+        self.scale_factor = 1. / (1. + redshift)
+        self.line_freq = line_freq
+        
+        # Define grid coordinates along each dimension
+        if isinstance(box_scale, tuple):
+            assert len(box_scale) == 3, "Must specify scale of x, y, z dimensions"
+            scale_x, scale_y, scale_z = box_scale
+            self.x = np.linspace(-0.5*scale_x, 0.5*scale_x, nsamp) # in Mpc
+            self.y = np.linspace(-0.5*scale_y, 0.5*scale_y, nsamp) # in Mpc
+            self.z = np.linspace(-0.5*scale_z, 0.5*scale_z, nsamp) # in Mpc
+            self.Lx = self.x[-1] - self.x[0] # Linear size of box
+            self.Ly = self.y[-1] - self.y[0] # Linear size of box
+            self.Lz = self.z[-1] - self.z[0] # Linear size of box
+        else:
+            self.x = self.y = self.z = np.linspace(-0.5*box_scale, 
+                                                    0.5*box_scale, 
+                                                    nsamp) # in Mpc
+            self.Lx = self.Ly = self.Lz = self.x[-1] - self.x[0] # Linear size of box
         
         # Conversion factor for FFT of power spectrum
         # For an example, see in liteMap.py:fillWithGaussianRandomField() in 
         # Flipper, by Sudeep Das. http://www.astro.princeton.edu/~act/flipper
-        self.boxfactor = (self.N**6.) / self.L**3.
+        self.boxfactor = (self.N**6.) / (self.Lx * self.Ly * self.Lz)
         
         # Fourier mode array
         self.set_fft_sample_spacing() # 3D array, arranged in correct order
         
         # Min./max. k modes in 3D (excl. zero mode)
-        self.kmin = 2.*np.pi/self.L
-        self.kmax = 2.*np.pi*np.sqrt(3.)*self.N/self.L
+        self.kmin = 2.*np.pi/np.max([self.Lx, self.Ly, self.Lz])
+        self.kmax = 2.*np.pi*np.sqrt(3.)*self.N/np.min([self.Lx, self.Ly, self.Lz])
         
         # Create a realisation of density/velocity perturbations in the box
         if realise_now:
@@ -75,16 +108,19 @@ class CosmoBox(object):
         Calculate the sample spacing in Fourier space, given some symmetric 3D 
         box in real space, with 1D grid point coordinates 'x'.
         """
-        self.kx = np.zeros((self.N,self.N,self.N))
-        self.ky = np.zeros((self.N,self.N,self.N))
-        self.kz = np.zeros((self.N,self.N,self.N))
+        # These are related to comoving k by factor of 2 pi / L
+        self.Kx = np.zeros((self.N,self.N,self.N))
+        self.Ky = np.zeros((self.N,self.N,self.N))
+        self.Kz = np.zeros((self.N,self.N,self.N))
         NN = ( self.N*fft.fftfreq(self.N, 1.) ).astype("i")
         for i in NN:
-            self.kx[i,:,:] = i
-            self.ky[:,i,:] = i
-            self.kz[:,:,i] = i
-        fac = (2.*np.pi/self.L)
-        self.k = np.sqrt(self.kx**2. + self.ky**2. + self.kz**2.) * fac
+            self.Kx[i,:,:] = i
+            self.Ky[:,i,:] = i
+            self.Kz[:,:,i] = i
+        # fac = (2.*np.pi/self.L)
+        self.k = 2.*np.pi * np.sqrt(  (self.Kx/self.Lx)**2. 
+                                    + (self.Ky/self.Ly)**2. 
+                                    + (self.Kz/self.Lz)**2.)
     
     
     def apply_transfer_fn(self, field_k, transfer_fn):
@@ -106,16 +142,16 @@ class CosmoBox(object):
             Real-space field that has had the transfer function applied.
         """
         # Get 2D Fourier modes
-        fac = (2.*np.pi/self.L)
-        k_perp = fac * np.sqrt(self.kx**2. + self.ky**2.)
-        k_par = fac * self.kz
+        #fac = (2.*np.pi/self.L)
+        k_perp = 2.*np.pi * np.sqrt((self.Kx/self.Lx)**2. + (self.Ky/self.Ly)**2.)
+        k_par = 2.*np.pi * self.Kz / self.Lz
         
         # Apply transfer function, perform inverse FFT, and return
         dk = field_k * transfer_fn(k_perp, k_par)
         dk = np.nan_to_num(dk)
         dx = fft.ifftn(dk)
         return dx
-        
+    
     
     def realise_density(self):
         """
@@ -125,7 +161,7 @@ class CosmoBox(object):
         # Calculate matter power spectrum
         # FIXME: To avoid errors from Cosmolopy, should replace k=0 with NaN
         k = self.k.flatten() # FIXME: Lots of dup. values. Be more efficient.
-        pk = ccl.nonlin_matter_power(self.cosmo, k=k, a=1.)
+        pk = ccl.nonlin_matter_power(self.cosmo, k=k, a=self.scale_factor)
         pk = np.reshape(pk, np.shape(self.k))
         pk = np.nan_to_num(pk) # Remove NaN at k=0 (and any others...)
         
@@ -163,18 +199,18 @@ class CosmoBox(object):
         # ways of dealing with this could change the answer!
         if self.N % 2 == 0: # Even no. samples
             # Set highest (negative) freq. to zero
-            mx = np.where(self.kx == np.min(self.kx))
-            my = np.where(self.ky == np.min(self.ky))
-            mz = np.where(self.kz == np.min(self.kz))
-            self.kx[mx] = 0.0; self.ky[my] = 0.0; self.kz[mz] = 0.0
+            mx = np.where(self.Kx == np.min(self.Kx))
+            my = np.where(self.Ky == np.min(self.Ky))
+            mz = np.where(self.Kz == np.min(self.Kz))
+            self.Kx[mx] = 0.0; self.Ky[my] = 0.0; self.Kz[mz] = 0.0
         
         # Get squared k-vector in k-space (and factor in scaling from kx, ky, kz)
         k2 = self.k**2.
         
         # Calculate components of A (the unscaled velocity)
-        Ax = 1j * self.delta_k * self.kx * (2.*np.pi/self.L) / k2
-        Ay = 1j * self.delta_k * self.ky * (2.*np.pi/self.L) / k2
-        Az = 1j * self.delta_k * self.kz * (2.*np.pi/self.L) / k2
+        Ax = 1j * self.delta_k * self.Kx * (2.*np.pi/self.Lx) / k2
+        Ay = 1j * self.delta_k * self.Ky * (2.*np.pi/self.Ly) / k2
+        Az = 1j * self.delta_k * self.Kz * (2.*np.pi/self.Lz) / k2
         Ax = np.nan_to_num(Ax)
         Ay = np.nan_to_num(Ay)
         Az = np.nan_to_num(Az)
@@ -191,7 +227,8 @@ class CosmoBox(object):
         # Phi = 3/2 (Omega_m H_0^2) (D(a) / a) delta(k) / k^2
         # (Overall scaling factor due to FT should already be included in delta_k?)
         Omega_m = self.cosmo['Omega_c'] + self.cosmo['Omega_b']
-        fac = (3./2.) * Omega_m * (100.*self.cosmo['h'])**2.
+        fac = (3./2.) * Omega_m * (100.*self.cosmo['h'])**2. \
+            * ccl.growth_factor(self.cosmo, self.scale_factor)/self.scale_factor
         
         self.phi_k = self.delta_k / self.k**2.
         self.phi_k[0,0,0] = 0.
@@ -317,9 +354,80 @@ class CosmoBox(object):
         parameters, using CCL. Does not depend on the realisation.
         """
         k = np.logspace(-3.5, 1., int(1e3))
-        pk = ccl.nonlin_matter_power(self.cosmo, k=k, a=1.)
+        pk = ccl.nonlin_matter_power(self.cosmo, k=k, a=self.scale_factor)
         return k, pk
         
+    
+    ############################################################################
+    # Information about the box
+    ############################################################################
+    
+    def freq_array(self, redshift=None):
+        """
+        Return frequency array coordinates (in the z direction of the box).
+        
+        This approximates the frequency channel width to be constant across the 
+        box, which is only a good approximation in the distant observer 
+        approximation.
+        
+        Parameters
+        ----------
+        redshift : float, optional
+            Redshift to evaluate the centre of the box at. Default: Same value 
+            as self.redshift.
+        """
+        # Check redshift
+        if redshift is None:
+            redshift = self.redshift
+        a = 1. / (1. + redshift)
+        
+        # Calculate central frequency of box
+        freq_centre = a * self.line_freq
+        
+        # Comoving voxel size
+        dx = self.Lz / self.N
+        
+        # Convert comoving voxel size to frequency channel size
+        # df / dr = df / da * (dr / da)^-1 = f0 * (a^2 H) / c
+        Hz = 100. * self.cosmo['h'] * ccl.h_over_h0(self.cosmo, a) # km/s/Mpc
+        df = dx * self.line_freq * (a**2. * Hz) / (C / 1e3) # Same units as line_freq
+        
+        # Comoving units in x direction: place origin in centre of box
+        freqs = freq_centre \
+              + df * (np.arange(self.N) - 0.5*(self.N - 1.))
+        return freqs
+    
+    
+    def pixel_array(self, redshift=None):
+        """
+        Return angular pixel coordinate array in degrees.
+        
+        Parameters
+        ----------
+        redshift : float, optional
+            Redshift to evaluate the centre of the box at. Default: Same value 
+            as self.redshift.
+        """
+        # Check redshift
+        if redshift is None:
+            redshift = self.redshift
+        scale_factor = 1. / (1. + redshift)
+        
+        # Calculate comoving distance to box redshift
+        r = ccl.comoving_angular_distance(self.cosmo, scale_factor)
+        
+        # Comoving pixel size
+        x_px = self.x[1] - self.x[0]
+        y_px = self.y[1] - self.y[0]
+        
+        # Angular pixel size
+        ang_x = (180. / np.pi) * (x_px / r)
+        ang_y = (180. / np.pi) * (y_px / r)
+        
+        # Pixel index grid; place origin in centre of box
+        grid = np.arange(self.N) - 0.5*(self.N - 1.)
+        
+        return ang_x*grid, ang_y*grid
     
     
     ############################################################################
@@ -344,14 +452,14 @@ class CosmoBox(object):
         
         # Calc. theoretical sigma8 in same k-window as realisation
         _k = np.linspace(self.kmin, self.kmax, int(5e3))
-        _pk = ccl.nonlin_matter_power(self.cosmo, k=_k, a=1.)
+        _pk = ccl.nonlin_matter_power(self.cosmo, k=_k, a=self.scale_factor)
         _y = _k**2. * _pk * self.window(_k, 8.0/self.cosmo['h'])
         _y = np.nan_to_num(_y)
         s8_th_win = np.sqrt( scipy.integrate.simps(_y, _k) / (2. * np.pi**2.) )
         
         # Calc. full sigma8 (in window that is wide enough)
         _k2 = np.logspace(-5, 2, int(5e4))
-        _pk2 = ccl.nonlin_matter_power(self.cosmo, k=_k2, a=1.)
+        _pk2 = ccl.nonlin_matter_power(self.cosmo, k=_k2, a=self.scale_factor)
         _y2 = _k2**2. * _pk2 * self.window(_k2, 8.0/self.cosmo['h'])
         _y2 = np.nan_to_num(_y2)
         s8_th_full = np.sqrt( scipy.integrate.simps(_y2, _k2) / (2. * np.pi**2.) )
@@ -402,7 +510,7 @@ if __name__ == '__main__':
     
     # Gaussian box
     np.random.seed(10)
-    box = CosmoBox(cosmo=default_cosmo, box_scale=1e3, nsamp=256, realise_now=False)
+    box = CosmoBox(cosmo=default_cosmo, box_scale=(1e3, 1e3, 1e2), nsamp=128, realise_now=False)
     box.realise_density()
     
     re_k, re_pk, re_stddev = box.binned_power_spectrum()
