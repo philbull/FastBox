@@ -236,7 +236,7 @@ class CosmoBox(object):
         return dx
     
     
-    def redshift_space_density(self, delta_x=None, velocity_z=None, 
+    def redshift_space_density(self, delta_x=None, velocity_z=None, sigma_nl=0., 
                                method='linear'):
         """
         Remap the real-space density field to redshift-space using the line-of-
@@ -248,7 +248,11 @@ class CosmoBox(object):
             Real-space density field.
         
         velocity_z : array_like, optional
-            Velocity in the z (line-of-sight) direction.
+            Velocity in the z (line-of-sight) direction (km/s).
+        
+        sigma_nl : float, optional
+            Optionally, add random small-scale incoherent velocities along the 
+            LOS (uncorrelated Gaussian; km/s).
         
         method : str, optional
             Interpolation method to use when performing remapping, using the 
@@ -264,13 +268,21 @@ class CosmoBox(object):
         for i in range(delta_x.shape[0]):
             for j in range(delta_x.shape[1]):
                 
+                # Realisation of uncorrelated non-linear velocities
+                vel_nl = 0.
+                if sigma_nl > 0.:
+                    vel_nl = sigma_nl * np.random.normal(0., 1., self.z.size)
+                    
                 # Redshift-space z coordinate (negative sign as we will map 
                 # from real coord to redshift-space coord)
-                s = self.z - velocity_z[i,j,:] / Hz
+                s = self.z - (velocity_z[i,j,:] + vel_nl) / Hz
                 
                 # Apply periodic boundary conditions
                 length_z = np.max(self.z) - np.min(self.z)
                 s = (s - np.min(self.z)) % (length_z) + np.min(self.z)
+                
+                # Use average value of endpoints as fill value
+                fill_value = 0.5 * (delta_x[i,j,0] + delta_x[i,j,-1])
                 
                 # Remap to redshift-space (on regular grid in redshift-space 
                 # with same grid points as in 'z' array)
@@ -278,7 +290,7 @@ class CosmoBox(object):
                                                             values=delta_x[i,j,:], 
                                                             xi=(self.z), 
                                                             method=method,
-                                                            fill_value=-1.)
+                                                            fill_value=fill_value)
         return delta_s
     
     

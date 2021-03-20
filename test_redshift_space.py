@@ -20,7 +20,7 @@ plt.colorbar()
 vel_z = fft.ifftn(box.velocity_k[2]).real
 
 delta_s = box.redshift_space_density(delta_x=box.delta_x, velocity_z=vel_z, 
-                                     method='linear')
+                                     sigma_nl=200., method='linear')
 
 plt.matshow(delta_s[0], vmin=-1., vmax=20., cmap='cividis')
 plt.title("Redshift-space")
