@@ -17,7 +17,7 @@ C = 299792458.
 # Define default cosmology
 default_cosmo = dict(Omega_c=0.25, Omega_b=0.05,
                      h=0.7, n_s=0.95, sigma8=0.8,
-                     transfer_function='bbks')
+                     transfer_function='eisenstein_hu')
 
 
 class CosmoBox(object):
@@ -54,6 +54,10 @@ class CosmoBox(object):
         realise_now : bool, optional
             If True, generate realisations of the density, velocity, and 
             potential immediately on initialisation. Default: True. 
+        
+        NOTE: The `self.delta_k` field is not in proper cosmological units; to 
+        get the power spectrum in the right units, a factor of `self.boxfactor` 
+        is needed for example.
         """
         if isinstance(cosmo, dict):
             cosmo = ccl.Cosmology(**cosmo)
@@ -118,21 +122,50 @@ class CosmoBox(object):
             self.Kx[i,:,:] = i
             self.Ky[:,i,:] = i
             self.Kz[:,:,i] = i
-        # fac = (2.*np.pi/self.L)
+        
         self.k = 2.*np.pi * np.sqrt(  (self.Kx/self.Lx)**2. 
                                     + (self.Ky/self.Ly)**2. 
                                     + (self.Kz/self.Lz)**2.)
     
     
-    def realise_density(self):
+    def realise_density(self, linear=False, redshift=None, inplace=True):
         """
         Create realisation of the matter power spectrum by randomly sampling 
         from Gaussian distributions of variance P(k) for each k mode.
+        
+        Parameters
+        ----------
+        linear : bool, optional
+            If True, use the linear matter power spectrum to do the Gaussian 
+            random realisation instead of the non-linear power spectrum set in 
+            `self.cosmo`. Default: False.
+        
+        redshift : float, optional
+            If specified, use this redshift to calculate the matter power 
+            spectrum for the Gaussian random realisation. Otherwise, the value 
+            of `self.redshift` is used. Default: None.
+        
+        inplace : bool, optional
+            If True, store the resulting density field and its Fourier transform 
+            into the `self.delta_x` and `self.delta_k` variables as well as 
+            returning `delta_x`. Default: True.
+        
+        Returns
+        -------
+        delta_x : array_like
+            3D array of delta_x values.
         """
+        # Get redshift
+        if redshift is None:
+            redshift = self.redshift
+        scale_factor = 1. / (1. + redshift)
+        
         # Calculate matter power spectrum
-        # FIXME: To avoid errors from Cosmolopy, should replace k=0 with NaN
-        k = self.k.flatten() # FIXME: Lots of dup. values. Be more efficient.
-        pk = ccl.nonlin_matter_power(self.cosmo, k=k, a=self.scale_factor)
+        k = self.k.flatten()
+        if linear:
+            pk = ccl.linear_matter_power(self.cosmo, k=k, a=scale_factor)
+        else:
+            pk = ccl.nonlin_matter_power(self.cosmo, k=k, a=scale_factor)
         pk = np.reshape(pk, np.shape(self.k))
         pk = np.nan_to_num(pk) # Remove NaN at k=0 (and any others...)
         
@@ -143,24 +176,82 @@ class CosmoBox(object):
         # Generate Gaussian random field with given power spectrum
         re = np.random.normal(0.0, 1.0, np.shape(self.k))
         im = np.random.normal(0.0, 1.0, np.shape(self.k))
-        self.delta_k = ( re + 1j*im ) * np.sqrt(pk)
+        delta_k = ( re + 1j*im ) * np.sqrt(pk) # (makes variance too high by 2x)
+        if inplace:
+            if redshift != self.redshift:
+                print("Warning: Storing density field into self.delta_x with a "
+                      "different redshift than self.redshift.")
+            self.delta_k = delta_k
         
         # Transform to real space. Here, we are discarding the imaginary part 
         # of the inverse FT! But we can recover the correct (statistical) 
-        # result by multiplying by a factor of sqrt(2). Also, there is a factor 
-        # of N^3 which seems to appear by a convention in the Discrete FT.
-        self.delta_x = fft.ifftn(self.delta_k).real
+        # result by multiplying by a factor of sqrt(2) [see above, where this 
+        # factor was already omitted when defining delta_k].
+        delta_x = fft.ifftn(self.delta_k).real # This ensures the field is real
+        if inplace:
+            self.delta_x = delta_x
         
-        # Finally, get the Fourier transform on the real field back
-        self.delta_k = fft.fftn(self.delta_x)
+        # Finally, get the Fourier transform back
+        if inplace:
+            self.delta_k = fft.fftn(self.delta_x)
+        return delta_x
         
     
-    def realise_velocity(self):
+    def realise_velocity(self, delta_x=None, delta_k=None, redshift=None, 
+                         inplace=True):
         """
-        Realise the (unscaled) velocity field in Fourier space. See 
-        Dodelson Eq. 9.18 for an expression; we factor out the 
-        time-dependent quantities here. They can be added at a later stage.
+        Realise the (unscaled) velocity field in Fourier space (e.g. see 
+        Dodelson Eq. 9.18):
+        
+            v(k) = i [f(a) H(a) a] delta_k vec{k} / k^2
+        
+        The DFT prefactor has not been applied; to get the real-space velocity, 
+        simply do ifftn(velocity_k[i]), where i=0..2 for the x,y,z Cartesian 
+        directions.
+        
+        Parameters
+        ----------
+        delta_x : array_like, optional.
+            Density fluctuation field. If this and `delta_k` are None, will use 
+            `self.delta_k` as the field. Default: None.
+        
+        delta_k : array_like, optional.
+            Fourier-space density fluctuation field. If this and `delta_x` are 
+            None, will use `self.delta_k` as the field. Default: None.
+        
+        redshift : float, optional
+            If specified, use this redshift to calculate the matter power 
+            spectrum for the Gaussian random realisation. Otherwise, the value 
+            of `self.redshift` is used. Default: None.
+        
+        inplace : bool, optional
+            If True, store the Fourier transform, `velocity_k`, of the 
+            resulting velocity field and its Fourier transform 
+            into the `self.velocity_k` variable. Default: True.
+        
+        Returns
+        -------
+        velocity_k : tuple of array_like
+            3-tuple of the x,y,z velocity field components in Fourier space, 
+            v_x(k), v_y(k), v_z(k). Apply ifftn() directly to any of the 
+            components to get the real-space velocity component with the 
+            correct normalisation.
         """
+        # Get redshift
+        if redshift is None:
+            redshift = self.redshift
+        scale_factor = 1. / (1. + redshift)
+        
+        # Check inputs
+        if delta_x is not None and delta_k is not None:
+            raise ValueError("delta_x and delta_k specified; can only specify one")
+        
+        # Do FFT of delta_x if specified; otherwise use delta_k or self.delta_k
+        if delta_x is not None:
+            delta_k = fft.fftn(delta_x)
+        if delta_k is None:
+            delta_k = self.delta_k
+        
         # If the FFT has an even number of samples, the most negative frequency 
         # mode must have the same value as the most positive frequency mode. 
         # However, when multiplying by 'i', allowing this mode to have a 
@@ -179,31 +270,89 @@ class CosmoBox(object):
         k2 = self.k**2.
         
         # Calculate components of A (the unscaled velocity)
-        Ax = 1j * self.delta_k * self.Kx * (2.*np.pi/self.Lx) / k2
-        Ay = 1j * self.delta_k * self.Ky * (2.*np.pi/self.Ly) / k2
-        Az = 1j * self.delta_k * self.Kz * (2.*np.pi/self.Lz) / k2
+        Ax = 1.j * delta_k * self.Kx * (2.*np.pi/self.Lx) / k2
+        Ay = 1.j * delta_k * self.Ky * (2.*np.pi/self.Ly) / k2
+        Az = 1.j * delta_k * self.Kz * (2.*np.pi/self.Lz) / k2
         Ax = np.nan_to_num(Ax)
         Ay = np.nan_to_num(Ay)
         Az = np.nan_to_num(Az)
         
-        # v(k) = i [f(a) H(a) a] delta_k vec{k} / k^2
-        self.velocity_k = (Ax, Ay, Az)
+        # Apply prefactor, v(k) = i [f(a) H(a) a] delta_k vec{k} / k^2
+        # N.B. velocity_k is missing a prefactor of 1/sqrt(self.box_factor).
+        # If you do ifftn(velocity_k), you will get the real-space velocity 
+        # field back with the correct scaling however
+        fac = 100.*self.cosmo['h'] * ccl.h_over_h0(self.cosmo, a=scale_factor) \
+            * ccl.growth_rate(self.cosmo, a=scale_factor) * scale_factor
+        Ax *= fac
+        Ay *= fac
+        Az *= fac
+        velocity_k = (Ax, Ay, Az)
+        
+        # Store result in object if requested
+        if inplace:
+            self.velocity_k = velocity_k
+        return velocity_k
     
     
-    def realise_potential(self):
+    def realise_potential(self, delta_x=None, delta_k=None, redshift=None, 
+                         inplace=True):
         """
-        Realise the (unscaled) potential in Fourier space. Time-dependent 
-        quantities have been factored out, and can be added in at a later stage.
+        Realise the potential in Fourier space.
+        
+            Phi = 3/2 (Omega_m H_0^2) (D(a) / a) delta(k) / k^2
+        
+        The DFT prefactor has not been applied; to get the real-space potential, 
+        simply do ifftn(potential_k).
+        
+        Parameters
+        ----------
+        delta_x : array_like, optional.
+            Density fluctuation field. If this and `delta_k` are None, will use 
+            `self.delta_k` as the field. Default: None.
+        
+        delta_k : array_like, optional.
+            Fourier-space density fluctuation field. If this and `delta_x` are 
+            None, will use `self.delta_k` as the field. Default: None.
+        
+        redshift : float, optional
+            If specified, use this redshift to calculate the matter power 
+            spectrum for the Gaussian random realisation. Otherwise, the value 
+            of `self.redshift` is used. Default: None.
+        
+        inplace : bool, optional
+            If True, store the Fourier transform, `velocity_k`, of the 
+            resulting velocity field and its Fourier transform 
+            into the `self.velocity_k` variable. Default: True.
         """
+        
+        # Get redshift
+        if redshift is None:
+            redshift = self.redshift
+        scale_factor = 1. / (1. + redshift)
+        
+        # Check inputs
+        if delta_x is not None and delta_k is not None:
+            raise ValueError("delta_x and delta_k specified; can only specify one")
+        
+        # Do FFT of delta_x if specified; otherwise use delta_k or self.delta_k
+        if delta_x is not None:
+            delta_k = fft.fftn(delta_x)
+        if delta_k is None:
+            delta_k = self.delta_k
+            
+        # Calculate pre-factor (FIXME: Make sure D isn't double-counted)
         # Phi = 3/2 (Omega_m H_0^2) (D(a) / a) delta(k) / k^2
-        # (Overall scaling factor due to FT should already be included in delta_k?)
         Omega_m = self.cosmo['Omega_c'] + self.cosmo['Omega_b']
         fac = (3./2.) * Omega_m * (100.*self.cosmo['h'])**2. \
             * ccl.growth_factor(self.cosmo, self.scale_factor)/self.scale_factor
         
-        self.phi_k = self.delta_k / self.k**2.
-        self.phi_k[0,0,0] = 0.
-        #self.phi_x = fft.ifftn(self.phi_k).real # FIXME: Is this correct?
+        phi_k = delta_k / self.k**2.
+        phi_k[0,0,0] = 0. # Fix monopole
+        
+        # Store result in object if requested
+        if inplace:
+            self.phi_k = phi_k
+        return phi_k
     
     
     def apply_transfer_fn(self, field_k, transfer_fn):
@@ -259,7 +408,7 @@ class CosmoBox(object):
             `scipy.interpolate.griddata` function. Default: 'linear'.
         """
         # Expansion rate (km/s/Mpc)
-        Hz = 100.*self.cosmo['h']*ccl.h_over_h0(self.cosmo, self.scale_factor)
+        Hz = 100.*self.cosmo['h'] * ccl.h_over_h0(self.cosmo, self.scale_factor)
 
         # Empty redshift-space array
         delta_s = np.zeros_like(delta_x) - 1. # Default value is -1 (void)
@@ -294,43 +443,28 @@ class CosmoBox(object):
         return delta_s
     
     
-    
-    def redshift_space_density_slow(self, delta_x=None, velocity_z=None, 
-                               method='nearest'):
+    def lognormal(self, delta_x):
         """
-        Remap the real-space density field to redshift-space using the line-of-
-        sight velocity field.
+        Return a log-normal transform of the input field (see Eq. 3.1 of 
+        arXiv:1706.09195; also c.f. Eq. 7 of Alonso et al., arXiv:1405.1751, 
+        which differs by a factor of 1/2).
         
         Parameters
         ----------
-        delta_x : array_like, optional
-            Real-space density field.
+        delta_x : array_like
+            Density field (shoudl be Gaussian, generated using a linear matter 
+            power spectrum).
         
-        velocity_z : array_like, optional
-            Velocity in the z (line-of-sight) direction.
-        
-        method : str, optional
-            Interpolation method to use when performing remapping, using the 
-            `scipy.interpolate.griddata` function. Default: 'linear'.
+        Returns
+        -------
+        delta_ln : array_like
+            Log-normal transform of input density field.
         """
-        # Expansion rate (km/s/Mpc)
-        Hz = 100.*self.cosmo['h']*ccl.h_over_h0(self.cosmo, self.scale_factor)
-        
-        # Real-space coordinates
-        _x, _y, _z = np.meshgrid(self.x, self.y, self.z)
-        
-        # Redshift-space z coordinate
-        s = _z + velocity_z / Hz
-        
-        # Remap to redshift-space
-        delta_s = scipy.interpolate.griddata(
-                            points=(_x.flatten(), _y.flatten(), s.flatten()), 
-                            values=delta_x.flatten(), 
-                            xi=(_x.flatten(), _y.flatten(), _z.flatten()), 
-                            method='linear')
-        delta_s = delta_s.reshape(delta_x.shape)
-        return delta_s
-        
+        # Use similar normalisation strategy to nbodykit lognormal_transform()
+        delta_ln = np.exp(delta_x)
+        delta_ln /= np.mean(delta_ln)
+        delta_ln -= 1.
+        return delta_ln
     
     ############################################################################
     # Output quantities related to the realisation
@@ -364,27 +498,7 @@ class CosmoBox(object):
         dk = np.nan_to_num(dk)
         dx = fft.ifftn(dk)
         return dx
-    
-    def lognormal(self, delta_x, transform_type='Alonso'):
-        """
-        Return a log-normal transform of the input field (see Eq. 3.1 of 
-        arXiv:1706.09195; also c.f. Eq. 7 of Alonso et al., arXiv:1405.1751, 
-        which differs by a factor of 1/2).
-        """
-        # Empirical variance of density field
-        sigma_g = np.std(delta_x)
         
-        if transform_type == 'Alonso':
-            # Log-normal transformation (Alonso et al.)
-            delta_ln = np.exp(delta_x - 0.5*sigma_g**2.) - 1.
-        elif transform_type == 'Agrawal':
-            delta_ln = np.exp(delta_x - sigma_g**2.) - 1.
-        else:
-            raise ValueError("transform_type '%s' not recognised." \
-                             % transform_type)
-        return delta_ln
-        
-    
     def sigmaR(self, R):
         """
         Get variance of matter perturbations, smoothed with a tophat filter 
@@ -404,7 +518,6 @@ class CosmoBox(object):
         
         # Return sigma_R (note factor of 4pi / (2pi)^3 from integration)
         return np.sqrt( I / (2. * np.pi**2.) )
-           
     
     def sigma8(self):
         """
@@ -413,18 +526,59 @@ class CosmoBox(object):
         """
         return self.sigmaR(8.0)
     
-    
-    def binned_power_spectrum(self, nbins=20, delta_k=None):
+    def binned_power_spectrum(self, delta_x=None, delta_k=None, nbins=20, kbins=None):
         """
         Return a binned power spectrum, calculated from the realisation.
+        
+        Parameters
+        ----------
+        delta_x : array_like, optional.
+            Density fluctuation field. If this and `delta_k` are None, will use 
+            `self.delta_k` as the field. Default: None.
+        
+        delta_k : array_like, optional.
+            Fourier-space density fluctuation field. If this and `delta_x` are 
+            None, will use `self.delta_k` as the field. Default: None.
+        
+        nbins : int, optional
+            Number of k bins to use, spanning [self.kmin, self.kmax]. Will be 
+            ignored if `kbins` is set. Default: 20.
+        
+        kbins : array_like, optional
+            If specified, use this array as the k bin edges. Default: None.
+        
+        Returns
+        -------
+        kc : array_like
+            Centroids of k bins.
+        
+        pk : array_like
+            Power spectrum values (with correct DFT/volume normalisation).
+        
+        sigma_pk : array_like
+            Estimate of the empirical error ok pk in each bin (calculated as 
+            sigma_pk = stddev(pk) / sqrt(N_pk) in each bin).
         """
-        if delta_k is None: delta_k = self.delta_k
-        pk = delta_k * np.conj(delta_k) # Power spectrum (noisy)
+        # Check inputs
+        if delta_x is not None and delta_k is not None:
+            raise ValueError("delta_x and delta_k specified; can only specify one")
+        
+        # Do FFT of delta_x if specified; otherwise use delta_k or self.delta_k
+        if delta_x is not None:
+            delta_k = fft.fftn(delta_x)
+        if delta_k is None:
+            delta_k = self.delta_k
+        
+        # Calculate the (noisy, unbinned) power spectrum and normalise
+        pk = delta_k * np.conj(delta_k)
         pk = pk.real / self.boxfactor
         
-        # Bin edges/centroids. Logarithmically-distributed bins in k-space.
-        # FIXME: Needs to be checked for correctness
-        bins = np.logspace(np.log10(self.kmin), np.log10(self.kmax), nbins)
+        # Bin edges/centroids
+        if kbins is not None:
+            bins = kbins
+        else:
+            # Logarithmically-distributed bins in k-space.
+            bins = np.logspace(np.log10(self.kmin), np.log10(self.kmax), nbins)
         _bins = [0.0] + list(bins) # Add zero to the beginning
         cent = [0.5*(_bins[j+1] + _bins[j]) for j in range(bins.size)]
         
@@ -439,11 +593,11 @@ class CosmoBox(object):
         for i in range(bins.size):
             ii = np.where(idxs==i, True, False)
             vals[i] = np.mean(pk.flatten()[ii])
-            stddev[i] = np.std(pk.flatten()[ii])
-        
+            stddev[i] = np.std(pk.flatten()[ii]) / np.sqrt(pk.flatten()[ii].size)
+            # ^ This is a crude estimate of the error on the mean
+            
         # First value is garbage, so throw it away
         return np.array(cent[1:]), np.array(vals[1:]), np.array(stddev[1:])
-    
     
     def theoretical_power_spectrum(self):
         """
