@@ -1,3 +1,3 @@
 
 from .box import CosmoBox
-from . import box, foregrounds, halos, noise
+from . import box, filters, foregrounds, halos, noise, tracers
