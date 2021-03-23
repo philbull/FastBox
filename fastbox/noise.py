@@ -55,7 +55,7 @@ class NoiseModel(object):
         """
         # Get frequency array and channel width (MHz)
         freqs = self.box.freq_array(redshift=redshift)
-        dnu = freqs[1] - freqs[0]
+        dnu = np.abs(freqs[1] - freqs[0])
         
         # Convert time per pointing to seconds
         tp *= 3600. # hrs to sec
@@ -66,7 +66,7 @@ class NoiseModel(object):
         t_res = tp * dtheta**2. / fov # fov also in deg^2
         
         # Get Tsys as a function of frequency
-        Tsky = 60e3 * (freq / 300.)**(-2.5) # Kelvin
+        Tsky = 60e3 * (freqs / 300.)**(-2.5) # Kelvin
         Tsys = Tinst + Tsky
         
         # Noise rms from the radiometer equation (fn. of frequency only)
