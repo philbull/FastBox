@@ -7,7 +7,7 @@ from fastbox.halos import HaloDistribution
 
 # Gaussian box
 np.random.seed(10)
-box = CosmoBox(cosmo=default_cosmo, box_scale=(1e3, 1e3, 1e2), 
+box = CosmoBox(cosmo=default_cosmo, box_scale=(1e3, 1e3, 1e3), 
                nsamp=128, realise_now=False)
 box.realise_density()
 
@@ -24,7 +24,7 @@ plt.colorbar()
 
 # Create halo distribution
 halos = HaloDistribution(box, mass_range=(1e12, 1e15), mass_bins=10)
-Nhalos = halos.generate_halos(box.delta_x, nbar=5e-5)
+Nhalos = halos.generate_halos(box.delta_x, nbar=1e-4)
 
 #re_k, re_pk, re_stddev = box.binned_power_spectrum()
 #th_k, th_pk = box.theoretical_power_spectrum()

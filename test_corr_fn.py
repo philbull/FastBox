@@ -25,7 +25,7 @@ box.realise_velocity()
 
 
 # Log-normal field and power spectrum
-delta_log = box.lognormal(box.delta_x, transform_type='nbodykit')
+delta_log = box.lognormal(box.delta_x)
 #logn_k, logn_pk, logn_stddev = box.binned_power_spectrum(delta_x=delta_log)
 
 
