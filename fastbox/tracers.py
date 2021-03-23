@@ -67,7 +67,7 @@ class TracerModel(object):
 
 class HITracer(TracerModel):
     
-    def __init__(self, box, OmegaHI0=0.000486, bHI0):
+    def __init__(self, box, OmegaHI0=0.000486, bHI0=0.677105):
         """
         An object to manage a biased tracer on top of a realisation of a 
         density field in a box.
@@ -81,7 +81,7 @@ class HITracer(TracerModel):
             Fractional density of HI at redshift 0. Default: 0.000486.
             
         bHI0 : float, optional
-            HI bias at redshift 0. Default: 
+            HI bias at redshift 0. Default: 0.677105.
         """
         # Initialise superclass
         super().__init__(box)
@@ -165,6 +165,6 @@ class HITracer(TracerModel):
         z = redshift
         
         # Fitting formula; see Bull et al. (2015)
-        return (self.Omega_HI0 / 0.000486) \
+        return (self.OmegaHI0 / 0.000486) \
              * (4.8304e-04 + 3.8856e-04*z - 6.5119e-05*z**2.)
 
