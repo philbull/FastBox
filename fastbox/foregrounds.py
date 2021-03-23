@@ -23,7 +23,8 @@ class ForegroundModel(object):
         self.box = box
         
     
-    def realise_foreground_amp(self, amp, beta, monopole, redshift=None):
+    def realise_foreground_amp(self, amp, beta, monopole, smoothing_scale=None, 
+                               redshift=None):
         """
         Create realisation of the matter power spectrum by randomly sampling 
         from Gaussian distributions of variance P(k) for each k mode.
@@ -42,6 +43,10 @@ class ForegroundModel(object):
             Zero-point offset of the foreground at the reference frequency. 
             Should be in the same units as the field, e.g. mK.
         
+        smoothing_scale : float, optional
+            Additional angular smoothing scale, in degrees. Default: None 
+            (no smoothing). 
+            
         redshift : float, optional
             Redshift to evaluate the centre of the box at. Default: Same value 
             as self.box.redshift.
@@ -61,7 +66,7 @@ class ForegroundModel(object):
         # Foreground angular power spectrum
         # \ell ~ k_perp r / 2
         # Use FG power spectrum model from Santos et al. (2005)
-        C_ell = amp * (0.5*k_perp*r / 1000.)**(-beta)
+        C_ell = amp * (0.5*k_perp*r / 1000.)**(beta)
         C_ell[np.isinf(C_ell)] = 0. # Remove inf at k=0
         
         # Normalise the power spectrum properly (factor of area, and norm. 
@@ -71,11 +76,19 @@ class ForegroundModel(object):
         # Generate Gaussian random field with given power spectrum
         re = np.random.normal(0.0, 1.0, np.shape(k_perp))
         im = np.random.normal(0.0, 1.0, np.shape(k_perp))
-        fg_k = (re + 1.j*im) * np.sqrt(C_ell)
+        fg_k = (re + 1.j*im) * np.sqrt(C_ell) # factor of 2x larger variance
+        fg_k[k_perp==0.] = 0. # remove zero mode
         
-        # Transform to real space. Here, we are discarding the imaginary part 
-        # of the inverse FT!
+        # Transform to real space. Discarding the imag part fixes the extra 
+        # factor of 2x in variance from above
         fg_x = fft.ifftn(fg_k).real + monopole
+        
+        # Apply angular smoothing
+        if smoothing_scale is not None:
+            ang_x, ang_y = self.box.pixel_array(redshift=redshift)
+            sigma = smoothing_scale / (ang_x[1] - ang_x[0])
+            fg_x = scipy.ndimage.gaussian_filter(fg_x, sigma=sigma, mode='wrap')
+        
         return fg_x
     
     
