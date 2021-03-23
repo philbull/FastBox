@@ -252,6 +252,17 @@ class CosmoBox(object):
         if delta_k is None:
             delta_k = self.delta_k
         
+        # Get squared k-vector in k-space (and factor in scaling from kx, ky, kz)
+        k2 = self.k**2.
+        
+        # Calculate components of A (the unscaled velocity)
+        Ax = 1.j * delta_k * self.Kx * (2.*np.pi/self.Lx) / k2
+        Ay = 1.j * delta_k * self.Ky * (2.*np.pi/self.Ly) / k2
+        Az = 1.j * delta_k * self.Kz * (2.*np.pi/self.Lz) / k2
+        Ax = np.nan_to_num(Ax)
+        Ay = np.nan_to_num(Ay)
+        Az = np.nan_to_num(Az)
+        
         # If the FFT has an even number of samples, the most negative frequency 
         # mode must have the same value as the most positive frequency mode. 
         # However, when multiplying by 'i', allowing this mode to have a 
@@ -264,18 +275,8 @@ class CosmoBox(object):
             mx = np.where(self.Kx == np.min(self.Kx))
             my = np.where(self.Ky == np.min(self.Ky))
             mz = np.where(self.Kz == np.min(self.Kz))
-            self.Kx[mx] = 0.0; self.Ky[my] = 0.0; self.Kz[mz] = 0.0
-        
-        # Get squared k-vector in k-space (and factor in scaling from kx, ky, kz)
-        k2 = self.k**2.
-        
-        # Calculate components of A (the unscaled velocity)
-        Ax = 1.j * delta_k * self.Kx * (2.*np.pi/self.Lx) / k2
-        Ay = 1.j * delta_k * self.Ky * (2.*np.pi/self.Ly) / k2
-        Az = 1.j * delta_k * self.Kz * (2.*np.pi/self.Lz) / k2
-        Ax = np.nan_to_num(Ax)
-        Ay = np.nan_to_num(Ay)
-        Az = np.nan_to_num(Az)
+        #    self.Kx[mx] = 0.0; self.Ky[my] = 0.0; self.Kz[mz] = 0.0
+        Ax[mx] = Ay[my] = Az[mz] = 0.
         
         # Apply prefactor, v(k) = i [f(a) H(a) a] delta_k vec{k} / k^2
         # N.B. velocity_k is missing a prefactor of 1/sqrt(self.box_factor).
@@ -324,7 +325,6 @@ class CosmoBox(object):
             resulting velocity field and its Fourier transform 
             into the `self.velocity_k` variable. Default: True.
         """
-        
         # Get redshift
         if redshift is None:
             redshift = self.redshift
@@ -643,10 +643,12 @@ class CosmoBox(object):
         Hz = 100. * self.cosmo['h'] * ccl.h_over_h0(self.cosmo, a) # km/s/Mpc
         df = dx * self.line_freq * (a**2. * Hz) / (C / 1e3) # Same units as line_freq
         
-        # Comoving units in x direction: place origin in centre of box
+        # Comoving units in z direction: place origin in centre of box
         freqs = freq_centre \
               + df * (np.arange(self.N) - 0.5*(self.N - 1.))
-        return freqs
+        
+        # Frequency is decreasing with increasing z coordinate
+        return freqs[::-1]
     
     
     def pixel_array(self, redshift=None):
