@@ -1,18 +1,23 @@
 """
-Filters for data analysis.
+Filters for data analysis, e.g. foreground filtering.
 """
 import numpy as np
 import pyccl as ccl
 import pylab as plt
 from numpy import fft
+from scipy.optimize import curve_fit
 
 
-
-def pca_filter(field, nmodes, return_filter=False):
+def pca_filter(field, nmodes, fit_powerlaw=True, return_filter=False):
     """
     Apply Principal Component Analysis (PCA) filter to a field. This subtracts 
     off functions in the frequency direction that correspond to the highest 
     SNR modes of the empirical frequency-frequency covariance.
+    
+    Note that the mean as a function of frequency (i.e. average over x and y 
+    pixels for each frequency channel) is subtracted from the data before 
+    calculating the PCA modes. The mean is then added back into the foreground 
+    model at the end.
     
     See Sect. 3.2 of Alonso et al. [arXiv:1409.8667] for details.
     N.B. Proper inverse-noise weighting is not currently used.
@@ -25,6 +30,11 @@ def pca_filter(field, nmodes, return_filter=False):
     
     nmodes : int
         Number of eigenmodes to filter out (modes are ordered by SNR).
+    
+    fit_powerlaw : bool, optional
+        If True, fit a power-law to the mean as a function of frequency. This 
+        may help prevent over-fitting of the mean relation. If False, the 
+        simple mean as a function of frequency will be used. Default: False.
     
     return_filter : bool, optional
         Whether to also return the linear FG filter operator and coefficients. 
@@ -48,6 +58,13 @@ def pca_filter(field, nmodes, return_filter=False):
     
     # Calculate average spectrum (avg. over pixels, as a function of frequency)
     d_mean = np.mean(d, axis=-1)[:,np.newaxis]
+    
+    # Fit power law to the mean and subtract that instead
+    if fit_powerlaw:
+        freqs = box.freq_array()
+        fn = lambda nu, amp, beta: amp * (nu / freqs[0])**beta
+        pfit = scipy.optimize.curve_fit(fn, freqs, d_mean, p0=[d_mean[0], -2.7])
+        d_mean = fn(freqs, pfit) # use power-law fit instead
     
     # Calculate freq-freq covariance matrix
     x = d - d_mean
