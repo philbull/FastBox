@@ -15,7 +15,7 @@ setup_args = {
     'package_dir': {'fastbox': 'fastbox'},
     'install_requires': [
         'numpy>=1.18',
-        'scipy',
+        'scipy>=1.5',
         'matplotlib>=2.2',
         'pyccl'
     ],
