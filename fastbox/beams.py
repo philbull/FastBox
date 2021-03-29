@@ -7,7 +7,7 @@ import pylab as plt
 from numpy import fft
 import scipy.ndimage
 from scipy.signal import convolve2d
-#import katbeam
+from multiprocessing import Pool
 
 
 class BeamModel(object):
@@ -60,10 +60,11 @@ class BeamModel(object):
         return 1. + 0.*x
     
     
-    def convolve_real(self, field_x, pol=None):
+    def convolve_real(self, field_x, pol=None, verbose=False):
         """
         Perform a real-space (direct) convolution of a field with the beam. 
-        Each frequency channel is convolved separately.
+        Each frequency channel is convolved separately. This function can take 
+        a long time.
         
         Parameters
         ----------
@@ -71,8 +72,11 @@ class BeamModel(object):
             Field to be convolved with the beam. Must be a 3D array; the freq. 
             direction is assumed to be the last one.
         
-        pol : str
+        pol : str, optional
             Which polarisation to return the beam for. Default: None.
+        
+        verbose : bool, optional
+            Whether to print progress messages. Default: False.
         
         Returns
         -------
@@ -81,7 +85,20 @@ class BeamModel(object):
         """
         beam = self.beam_cube(pol=pol)
         field_sm = np.zeros_like(field_x)
+        
+        # Function to do beam convolution of a single frequency slice 
+        #def conv(i):
+        #    return convolve2d(field_x[:,:,i], beam[:,:,i], 
+        #                      mode='same', boundary='wrap', fillvalue=0.)
+        
+        # Loop over frequency slices (in parallel if possible)
+        #with Pool(nproc) as pool:
+        #    field_sm = np.array( pool.map(conv, np.arange(field_x.shape[-1])) )
+        
         for i in range(field_x.shape[-1]):
+            if verbose and i % 10 == 0:
+                print("convolve_real: %d / %d" % (i+1, field_x.shape[-1]))
+                
             field_sm[:,:,i] = convolve2d(field_x[:,:,i], beam[:,:,i], 
                                          mode='same', boundary='wrap', 
                                          fillvalue=0.)
