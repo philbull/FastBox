@@ -8,7 +8,7 @@ from numpy import fft
 from scipy.optimize import curve_fit
 
 
-def pca_filter(field, nmodes, fit_powerlaw=True, return_filter=False):
+def pca_filter(field, nmodes, fit_powerlaw=False, return_filter=False):
     """
     Apply Principal Component Analysis (PCA) filter to a field. This subtracts 
     off functions in the frequency direction that correspond to the highest 
@@ -60,12 +60,17 @@ def pca_filter(field, nmodes, fit_powerlaw=True, return_filter=False):
     d_mean = np.mean(d, axis=-1)[:,np.newaxis]
     
     # Fit power law to the mean and subtract that instead
+    # (FIXME: Needs to be tested more thoroughly)
     if fit_powerlaw:
-        freqs = box.freq_array()
-        fn = lambda nu, amp, beta: amp * (nu / freqs[0])**beta
-        pfit = scipy.optimize.curve_fit(fn, freqs, d_mean, p0=[d_mean[0], -2.7])
-        d_mean = fn(freqs, pfit) # use power-law fit instead
-    
+        freqs = np.linspace(1., 10., d.shape[0])
+        
+        def fn(nu, amp, beta):
+            return amp * (nu / nu[0])**beta
+        
+        p0 = [d_mean[0][0], -2.7]
+        pfit, _ = curve_fit(fn, freqs, d_mean.flatten(), p0=p0)
+        d_mean = fn(freqs, pfit[0], pfit[1])[:,np.newaxis] # use power-law fit instead
+        
     # Calculate freq-freq covariance matrix
     x = d - d_mean
     cov = np.cov(x) # (Nfreqs x Nfreqs)
