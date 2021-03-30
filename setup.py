@@ -17,6 +17,7 @@ setup_args = {
         'numpy>=1.18',
         'scipy>=1.5',
         'matplotlib>=2.2',
+        'sklearn',
         'pyccl'
     ],
     'include_package_data': True,

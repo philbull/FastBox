@@ -14,7 +14,7 @@ Current features include:
    k_perp and k_parallel
  - Poisson realisations of halo/galaxy samples
  - Radio noise and foregrounds
- - Simple foreground filtering (via PCA)
+ - Simple foreground filtering (via PCA and ICA)
  - Integration with the DESC Core Cosmology Library
  - Power spectra, correlation functions, and their 
    multipoles, via nbodykit
