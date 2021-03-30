@@ -6,7 +6,7 @@ import pyccl as ccl
 import pylab as plt
 from numpy import fft
 from scipy.optimize import curve_fit
-from sklearn.decomposition import FastICA
+from sklearn.decomposition import FastICA, NMF, KernelPCA
 
 
 def pca_filter(field, nmodes, fit_powerlaw=False, return_filter=False):
@@ -120,7 +120,7 @@ def ica_filter(field, nmodes, return_filter=False, **kwargs_ica):
         NOTE: This assumes that the 3rd axis of the array is frequency.
     
     nmodes : int
-        Number of eigenmodes to filter out (modes are ordered by SNR).
+        Number of eigenmodes to filter out.
     
     return_filter : bool, optional
         Whether to also return the linear FG filter operator and coefficients. 
@@ -167,3 +167,131 @@ def ica_filter(field, nmodes, return_filter=False, **kwargs_ica):
         return x_clean
 
 
+def kernel_pca_filter(field, nmodes, return_filter=False, **kwargs_pca):
+    """
+    Apply a Kernel Principal Component Analysis (KPCA) filter to a field. This 
+    subtracts off functions in the frequency direction that correspond to the 
+    highest SNR modes of the empirical frequency-frequency covariance, with 
+    some non-linear weighting by a specified kernel.
+    
+    (WARNING: Can use a lot of memory)
+
+    Uses `sklearn.decomposition.KernelPCA`. For more details, see:
+    https://scikit-learn.org/stable/modules/generated/sklearn.decomposition.KernelPCA.html
+
+    Parameters
+    ----------
+    field : array_like
+        3D array containing the field that the filter will be applied to. 
+        NOTE: This assumes that the 3rd axis of the array is frequency.
+
+    nmodes : int
+        Number of eigenmodes to filter out (modes are ordered by SNR).
+
+    return_filter : bool, optional
+        Whether to also return the linear FG filter operator and coefficients. 
+        Default: False.
+
+    **kwargs_pca : dict, optional
+        Keyword arguments for the `sklearn.decomposition.KernelPCA`
+
+    Returns
+    -------
+    cleaned_field : array_like
+        Foreground-cleaned field.
+
+    transformer : sklearn.decomposition.KernelPCA instance, optional
+        Contains the PCA filter. Only returned if `return_operator = True`. 
+        To get the foreground model, you can do the following: 
+            ```
+            x = field - mean_field # shape (Npix, Nfreq)
+            x_trans = transformer.fit_transform(x.T) # mode amplitudes per pixel
+            x_fg = transformer.inverse_transform(x_trans).T # foreground model
+            ```
+    """
+    # Calculate freq-freq covariance matrix
+    d = field.reshape((-1, field.shape[-1])).T # (Nfreqs, Nxpix * Nypix)
+
+    # Calculate average spectrum (avg. over pixels, as a function of frequency)
+    d_mean = np.mean(d, axis=-1)[:,np.newaxis]
+    x = d - d_mean # mean-subtracted data
+
+    # Build PCA model and get amplitudes for each mode per pixel
+    transformer = KernelPCA(n_components=nmodes, fit_inverse_transform=True, **kwargs_pca)
+    x_trans = transformer.fit_transform(x.T)
+
+    # Construct foreground operator
+    x_fg = transformer.inverse_transform(x_trans).T
+
+    # Subtract foreground operator
+    x_clean = (x - x_fg).T.reshape(field.shape)
+
+    # Return FG-subtracted data (and, optionally, the PCA filter instance)
+    if return_filter:
+        return x_clean, transformer
+    else:
+        return x_clean
+
+
+def nmf_filter(field, nmodes, return_filter=False, **kwargs_nmf):
+    """
+    Apply a Non-Negative Matrix Factorisation (NMF) filter to a field. This 
+    finds two non-negative matrices whose product approximates the (strictly 
+    non-negative) input signal. 
+
+    Uses `sklearn.decomposition.NMF`. For more details, see:
+    https://scikit-learn.org/stable/modules/generated/sklearn.decomposition.NMF.html
+
+    Parameters
+    ----------
+    field : array_like
+        3D array containing the field that the filter will be applied to. 
+        NOTE: This assumes that the 3rd axis of the array is frequency.
+
+    nmodes : int
+        Number of eigenmodes to filter out.
+
+    return_filter : bool, optional
+        Whether to also return the linear FG filter operator and coefficients. 
+        Default: False.
+
+    **kwargs_nmf : dict, optional
+        Keyword arguments for the `sklearn.decomposition.NMF`
+
+    Returns
+    -------
+    cleaned_field : array_like
+        Foreground-cleaned field.
+
+    transformer : sklearn.decomposition.NMF instance, optional
+        Contains the NMF filter. Only returned if `return_operator = True`. 
+        To get the foreground model, you can do the following: 
+            ```
+            x = field - mean_field # shape (Npix, Nfreq)
+            x_trans = transformer.fit_transform(x.T) # mode amplitudes per pixel
+            x_fg = transformer.inverse_transform(x_trans).T # foreground model
+            ```
+    """
+    # Calculate freq-freq covariance matrix
+    d = field.reshape((-1, field.shape[-1])).T # (Nfreqs, Nxpix * Nypix)
+
+    # Calculate average spectrum (avg. over pixels, as a function of frequency)
+    d_mean = np.mean(d, axis=-1)[:,np.newaxis]
+    x = d
+
+    # Build NMF model and get amplitudes for each mode per pixel
+    transformer = NMF(n_components=nmodes, **kwargs_nmf)
+    x_trans = transformer.fit_transform(x.T)
+
+    # Construct foreground operator
+    x_fg = transformer.inverse_transform(x_trans).T
+
+    # Subtract foreground operator
+    x_clean = (x - x_fg).T.reshape(field.shape)
+
+    # Return FG-subtracted data (and, optionally, the NMF filter instance)
+    if return_filter:
+        return x_clean, transformer
+    else:
+        return x_clean
+        
