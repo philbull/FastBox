@@ -6,7 +6,7 @@ import pyccl as ccl
 import pylab as plt
 from numpy import fft
 import scipy.ndimage
-from scipy.signal import convolve2d
+from scipy.signal import convolve2d, fftconvolve
 from multiprocessing import Pool
 
 
@@ -60,6 +60,35 @@ class BeamModel(object):
         return 1. + 0.*x
     
     
+    def convolve_fft(self, field_x, pol=None):
+        """
+        Perform an FFT-based convolution of a field with the beam. Each 
+        frequency channel is convolved separately.
+        
+        Parameters
+        ----------
+        field_x : array_like
+            Field to be convolved with the beam. Must be a 3D array; the freq. 
+            direction is assumed to be the last one.
+        
+        pol : str, optional
+            Which polarisation to return the beam for. Default: None.
+        
+        Returns
+        -------
+        field_smoothed : array_like
+            Beam-convolved field, same shape as the input field.
+        """
+        # Get beam cube and normalise (so integral is unity)
+        beam = self.beam_cube(pol=pol)
+        norm = np.sum(beam.reshape(-1, beam.shape[-1]), axis=0)
+        
+        # Do 2D FFT convolution with beam on each frequency slice
+        field_sm = scipy.signal.fftconvolve(beam, field_x, mode='same', 
+                                            axes=[0,1])
+        return field_sm / norm[np.newaxis,np.newaxis,:]
+
+    
     def convolve_real(self, field_x, pol=None, verbose=False):
         """
         Perform a real-space (direct) convolution of a field with the beam. 
@@ -83,7 +112,11 @@ class BeamModel(object):
         field_smoothed : array_like
             Beam-convolved field, same shape as the input field.
         """
+        # Get beam cube and normalise (so integral is unity)
         beam = self.beam_cube(pol=pol)
+        norm = np.sum(beam.reshape(-1, beam.shape[-1]), axis=0)
+        
+        # Initialise smoothed field
         field_sm = np.zeros_like(field_x)
         
         # Function to do beam convolution of a single frequency slice 
@@ -95,14 +128,15 @@ class BeamModel(object):
         #with Pool(nproc) as pool:
         #    field_sm = np.array( pool.map(conv, np.arange(field_x.shape[-1])) )
         
+        # Loop over frequencies
         for i in range(field_x.shape[-1]):
             if verbose and i % 10 == 0:
                 print("convolve_real: %d / %d" % (i+1, field_x.shape[-1]))
                 
-            field_sm[:,:,i] = convolve2d(field_x[:,:,i], beam[:,:,i], 
+            field_sm[:,:,i] = convolve2d(beam[:,:,i], field_x[:,:,i], 
                                          mode='same', boundary='wrap', 
                                          fillvalue=0.)
-        return field_sm
+        return field_sm / norm[np.newaxis,np.newaxis,:]
 
 
 
