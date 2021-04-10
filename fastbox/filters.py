@@ -219,6 +219,77 @@ def kernel_pca_filter(field, nmodes, return_filter=False, **kwargs_pca):
     # Build PCA model and get amplitudes for each mode per pixel
     transformer = KernelPCA(n_components=nmodes, fit_inverse_transform=True, **kwargs_pca)
     x_trans = transformer.fit_transform(x.T)
+    
+    # Manually perform inverse transform, using the remaining eigenmode with 
+    # the smallest eigenvalue
+    X = transformer.alphas_[:,-1:] * np.sqrt(transformer.lambdas_[-1:]) # = x_trans
+    K = transformer._get_kernel(X, transformer.X_transformed_fit_[:,-1:])
+    n_samples = trans.X_transformed_fit_.shape[0]
+    K.flat[::n_samples + 1] += transformer.alpha
+    x_clean = np.dot(K, transformer.dual_coef_).reshape(field.shape)
+    
+    # Return FG-subtracted data (and, optionally, the PCA filter instance)
+    if return_filter:
+        return x_clean, transformer
+    else:
+        return x_clean
+
+
+def kernel_pca_filter_legacy(field, nmodes, return_filter=False, **kwargs_pca):
+    """
+    Apply a Kernel Principal Component Analysis (KPCA) filter to a field. This 
+    subtracts off functions in the frequency direction that correspond to the 
+    highest SNR modes of the empirical frequency-frequency covariance, with 
+    some non-linear weighting by a specified kernel.
+    
+    NOTE: The sklearn KernelPCA function changed behaviour sometime after 
+    v.0.22, so this function doesn't seem to work very well any more.
+    
+    (WARNING: Can use a lot of memory)
+
+    Uses `sklearn.decomposition.KernelPCA`. For more details, see:
+    https://scikit-learn.org/stable/modules/generated/sklearn.decomposition.KernelPCA.html
+
+    Parameters
+    ----------
+    field : array_like
+        3D array containing the field that the filter will be applied to. 
+        NOTE: This assumes that the 3rd axis of the array is frequency.
+
+    nmodes : int
+        Number of eigenmodes to filter out (modes are ordered by SNR).
+
+    return_filter : bool, optional
+        Whether to also return the linear FG filter operator and coefficients. 
+        Default: False.
+
+    **kwargs_pca : dict, optional
+        Keyword arguments for the `sklearn.decomposition.KernelPCA`
+
+    Returns
+    -------
+    cleaned_field : array_like
+        Foreground-cleaned field.
+
+    transformer : sklearn.decomposition.KernelPCA instance, optional
+        Contains the PCA filter. Only returned if `return_operator = True`. 
+        To get the foreground model, you can do the following: 
+            ```
+            x = field - mean_field # shape (Npix, Nfreq)
+            x_trans = transformer.fit_transform(x.T) # mode amplitudes per pixel
+            x_fg = transformer.inverse_transform(x_trans).T # foreground model
+            ```
+    """
+    # Calculate freq-freq covariance matrix
+    d = field.reshape((-1, field.shape[-1])).T # (Nfreqs, Nxpix * Nypix)
+
+    # Calculate average spectrum (avg. over pixels, as a function of frequency)
+    d_mean = np.mean(d, axis=-1)[:,np.newaxis]
+    x = d - d_mean # mean-subtracted data
+
+    # Build PCA model and get amplitudes for each mode per pixel
+    transformer = KernelPCA(n_components=nmodes, fit_inverse_transform=True, **kwargs_pca)
+    x_trans = transformer.fit_transform(x.T)
 
     # Construct foreground operator
     x_fg = transformer.inverse_transform(x_trans).T
