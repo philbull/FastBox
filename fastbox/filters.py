@@ -224,7 +224,7 @@ def kernel_pca_filter(field, nmodes, return_filter=False, **kwargs_pca):
     # the smallest eigenvalue
     X = transformer.alphas_[:,-1:] * np.sqrt(transformer.lambdas_[-1:]) # = x_trans
     K = transformer._get_kernel(X, transformer.X_transformed_fit_[:,-1:])
-    n_samples = trans.X_transformed_fit_.shape[0]
+    n_samples = transformer.X_transformed_fit_.shape[0]
     K.flat[::n_samples + 1] += transformer.alpha
     x_clean = np.dot(K, transformer.dual_coef_).reshape(field.shape)
     
