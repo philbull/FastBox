@@ -211,6 +211,8 @@ class GlobalSkyModel(object):
         verbose : bool, optional
             If True, print status messages. Default: True.
         """
+        import healpy as hp
+        
         # Initialise empty cube
         fgcube = np.zeros((self.box.N, self.box.N, self.box.N))
         
