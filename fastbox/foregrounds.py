@@ -221,7 +221,7 @@ class GlobalSkyModel(object):
         delta_ang_y = np.max(ang_y) - np.min(ang_y)
         
         # Cartesian projection of maps
-        npix = box.N
+        npix = self.box.N
         lonra = [lon0 - 0.5*delta_ang_x, lon0 + 0.5*delta_ang_x]
         latra = [lat0 - 0.5*delta_ang_y, lat0 + 0.5*delta_ang_y]
         proj = hp.projector.CartesianProj(lonra=lonra, latra=latra, coord='G',
