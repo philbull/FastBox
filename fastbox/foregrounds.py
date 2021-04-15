@@ -233,7 +233,7 @@ class GlobalSkyModel(object):
         if loop:
             for i, freq in enumerate(freqs):
                 if verbose and i % 10 == 0:
-                    print("    Channel %d / %d" % (i, len(maps)))
+                    print("    Channel %d / %d" % (i, len(freqs)))
                 
                 # Get map and project to Cartesian grid
                 m = gsm.generate(freq)
@@ -247,7 +247,7 @@ class GlobalSkyModel(object):
             # Do projection one channel at a time
             for i, m in enumerate(maps):
                 if verbose and i % 10 == 0:
-                    print("    Channel %d / %d" % (i, len(maps)))
+                    print("    Channel %d / %d" % (i, len(freqs)))
                 fgmap[:,:,i] = proj.projmap(m, vec2pix_func=partial(hp.vec2pix, nside))
         
         # Return datacube
