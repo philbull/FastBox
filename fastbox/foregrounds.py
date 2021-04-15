@@ -236,12 +236,12 @@ class GlobalSkyModel(object):
                     print("    Channel %d / %d" % (i, len(freqs)))
                 
                 # Get map and project to Cartesian grid
-                m = gsm.generate(freq)
+                m = self.gsm.generate(freq)
                 nside = hp.npix2nside(m.size)
                 fgmap[:,:,i] = proj.projmap(m, vec2pix_func=partial(hp.vec2pix, nside))
         else:
             # Fetch all maps in one go
-            maps = gsm.generate(freqs)
+            maps = self.gsm.generate(freqs)
             nside = hp.npix2nside(maps[0].size)
             
             # Do projection one channel at a time
