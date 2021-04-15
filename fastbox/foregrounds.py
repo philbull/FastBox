@@ -6,6 +6,7 @@ import pyccl as ccl
 import pylab as plt
 from numpy import fft
 import scipy.ndimage
+from functools import partial
 
 
 class ForegroundModel(object):
@@ -127,7 +128,7 @@ class ForegroundModel(object):
     def construct_cube(self, amps, spectral_idx, freq_ref=130., redshift=None):
         """
         Construct a foreground datacube from an input 2D amplitude map and 
-        spectra index map.
+        spectral index map.
         
         Parameters
         ----------
@@ -154,4 +155,99 @@ class ForegroundModel(object):
         # Return datacube
         return amps[:,:,np.newaxis] * ffac
         
+
+
+
+class GlobalSkyModel(object):
+    
+    def __init__(self, box):
+        """
+        An object to manage the addition of foregrounds from pyGDSM on top of a 
+        realisation of a density field in a box. Uses the GlobalSkyModel2016 
+        class.
+        
+        Parameters
+        ----------
+        box : CosmoBox
+            Object containing a simulation box.
+        """
+        self.box = box
+        
+        # Check for imports specific to this class
+        try:
+            from pygdsm import GlobalSkyModel2016
+        except:
+            print("pygdsm is not installed")
+            raise
+        try:
+            import healpy as hp
+        except:
+            print("healpy is not installed")
+            raise
+        
+        # Initialise GSM
+        self.gsm = GlobalSkyModel2016(freq_unit='MHz')
+    
+    
+    def construct_cube(self, lat0=0., lon0=0., redshift=None, loop=True, 
+                       verbose=True):
+        """
+        Construct a foreground datacube from GDSM.
+        
+        Parameters
+        ----------
+        lat0, lon0 : float, optional
+            Latitude and longitude of the centre of the field in default pyGDSM 
+            coordinates (Galactic), in degrees. Default: 0, 0.
+            
+        redshift : float, optional
+            Redshift to evaluate the centre of the box at. Default: Same value 
+            as self.box.redshift.
+        
+        loop : bool, optional
+            Whether to fetch the GSM maps for all frequency channels at once 
+            (False), or to loop through them one by one (True). Default: False.
+        
+        verbose : bool, optional
+            If True, print status messages. Default: True.
+        """
+        # Initialise empty cube
+        fgcube = np.zeros((self.box.N, self.box.N, self.box.N))
+        
+        # Get frequency array and scaling
+        freqs = self.box.freq_array(redshift=redshift)
+        ang_x, ang_y = self.box.pixel_array(redshift=redshift)
+        delta_ang_x = np.max(ang_x) - np.min(ang_x)
+        delta_ang_y = np.max(ang_y) - np.min(ang_y)
+        
+        # Cartesian projection of maps
+        npix = box.N
+        lonra = [lon0 - 0.5*delta_ang_x, lon0 + 0.5*delta_ang_x]
+        latra = [lat0 - 0.5*delta_ang_y, lat0 + 0.5*delta_ang_y]
+        proj = hp.projector.CartesianProj(lonra=lonra, latra=latra, coord='G',
+                                          xsize=npix, ysize=npix)
+        
+        # Fetch maps and perform projection
+        if loop:
+            for i, freq in enumerate(freqs):
+                if verbose and i % 10 == 0:
+                    print("    Channel %d / %d" % (i, len(maps)))
+                
+                # Get map and project to Cartesian grid
+                m = gsm.generate(freq)
+                nside = hp.npix2nside(m.size)
+                fgmap[:,:,i] = proj.projmap(m, vec2pix_func=partial(hp.vec2pix, nside))
+        else:
+            # Fetch all maps in one go
+            maps = gsm.generate(freqs)
+            nside = hp.npix2nside(maps[0].size)
+            
+            # Do projection one channel at a time
+            for i, m in enumerate(maps):
+                if verbose and i % 10 == 0:
+                    print("    Channel %d / %d" % (i, len(maps)))
+                fgmap[:,:,i] = proj.projmap(m, vec2pix_func=partial(hp.vec2pix, nside))
+        
+        # Return datacube
+        return fgcube
     
