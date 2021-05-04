@@ -3,6 +3,8 @@ import os
 import sys
 from setuptools import setup
 
+#download the planck maps
+os. system('./get_planck_maps.sh')
 
 setup_args = {
     'name': 'fastbox',
@@ -18,6 +20,7 @@ setup_args = {
         'scipy>=1.5',
         'matplotlib>=2.2',
         'sklearn',
+        'lmfit',
         'pyccl'
     ],
     'include_package_data': True,
@@ -26,3 +29,4 @@ setup_args = {
 
 if __name__ == '__main__':
     setup(**setup_args)
+
