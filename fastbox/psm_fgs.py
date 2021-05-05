@@ -48,13 +48,9 @@ class PSMfgModel(object):
         yside = len(ang_y)
 
         #admin
-        try:
-            ffp10loc = 'fastbox/ffp10data/'
-            s217loc = ffp10loc + 'COM_SimMap_synchrotron-ffp10-skyinbands-217_2048_R3.00_full.fits'
-            f217loc = ffp10loc + 'COM_SimMap_freefree-ffp10-skyinbands-217_2048_R3.00_full.fits'
-            s353loc = ffp10loc + 'COM_SimMap_synchrotron-ffp10-skyinbands-353_2048_R3.00_full.fits'
-        except:
-            raise ImportError("Please download the appropriate maps from the foregrounds section of https://pla.esac.esa.int/#maps")
+        s217loc = 'fastbox/COM_SimMap_synchrotron-ffp10-skyinbands-217_2048_R3.00_full.fits'
+        f217loc = 'fastbox/COM_SimMap_freefree-ffp10-skyinbands-217_2048_R3.00_full.fits'
+        s353loc = 'fastbox/COM_SimMap_synchrotron-ffp10-skyinbands-353_2048_R3.00_full.fits'
 
         #Convert maps from Tcmb to Trj
         sync217 = hp.fitsfunc.read_map(s217loc, field=0, nest=False) / self.planckcorr(217)
