@@ -1,10 +1,8 @@
 """
 Perform a least squares fit per pixel
 """
-try:
-    from lmfit import Minimizer, Parameters
-except:
-    raise ImportError("Unable to import `lmfit`; please install")
+
+from lmfit import Minimizer, Parameters
 import numpy as np
 from multiprocessing import Queue, Process
 import scipy.linalg as scl
@@ -41,7 +39,7 @@ class LSQfitting(object):
 
         return weights * (tot - data)
 
-    def do_loop(self, int, bits, data, noise, freqs, bsval, syamp, ffamp, mod, bidea, queue):
+    def do_loop(self, int, bits, data, noise, freqs, bsval, syamp, ffamp, mod, bidea, freeind, queue):
 
         lenf = len(freqs)
         star = bits[int]
@@ -67,7 +65,7 @@ class LSQfitting(object):
             #getting amps from fitted specs
             specs = np.zeros((lenf, 2))
             specs[:, 0] = (freqs / freqs[0]) ** np.array(val_dic["betaS"])
-            specs[:, 1] = (freqs / freqs[0]) ** np.array(-2.1)
+            specs[:, 1] = (freqs / freqs[0]) ** np.array(freeind)
     
             num = np.dot(specs.T, tval)
             denom = scl.inv(np.dot(specs.T, specs))
@@ -80,13 +78,12 @@ class LSQfitting(object):
 
         queue.put([bsval[star:enl], syamp[star:enl], ffamp[star:enl], mod[star:enl, :], star, enl])
     
-    def run_fit(self, maps, freqs, numpix, tpsmean):
+    def run_fit(self, maps, freqs, numpix, tpsmean, freeind):
         """ perform the fit to data """
 
         lenf = len(freqs)
     
         #noise maps, my noise is at the level of free-free emission
-        freeind = -2.1
         psmmodel = PSMfgModel(self.box) 
         _, freen, _ = psmmodel.square_syncff(900., freeind)
         sigma = np.std(freen)
@@ -105,7 +102,7 @@ class LSQfitting(object):
         queue = Queue()
         bits = np.linspace(0, numpix, 8).astype('int')
         processes = [Process(target=self.do_loop, args=(intv, bits, data, noise.T, freqs, bsval, \
-                        syamp, ffamp, mod, bput, queue)) for intv in range(8-1)]
+                        syamp, ffamp, mod, bput, freeind, queue)) for intv in range(8-1)]
  
         for p in processes:
             p.start()
@@ -122,7 +119,7 @@ class LSQfitting(object):
 
         return data - mod, bsval
 
-    def give_hest(self, freqs, T_obs):
+    def give_hest(self, freqs, T_obs, freeind, psaveind, cuttoff, indspread):
 
         print('running LSQ fit')
 
@@ -131,9 +128,9 @@ class LSQfitting(object):
         yside = len(ang_y)
 
         psmodel = PointSourceModel(self.box)
-        _, tpsmean = psmodel.make_ps_nobeam(freqs, 0.1, -2.7, 0.2)
+        _, tpsmean = psmodel.make_ps_nobeam(freqs, cuttoff, psaveind, freeind)
 
-        ress, spec = self.run_fit(T_obs, freqs, xside*yside, tpsmean)
+        ress, spec = self.run_fit(T_obs, freqs, xside*yside, tpsmean, freeind)
         n_ch = len(freqs)
         resid = ress.reshape(n_ch, xside, yside)
         bspec = spec.reshape(xside, yside)
