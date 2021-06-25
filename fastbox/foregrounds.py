@@ -490,7 +490,7 @@ class PlanckSkyModel(object):
             if not os.path.exists(f):
                 raise ValueError("Could not find file '%s' for key '%s'" % (f, key))
         self.planck_sim_paths = planck_sim_paths
-        
+    
 
     def planck_corr(self, freq_ghz):
         """Correction factor to convert T_CMB to T_RJ.
@@ -505,7 +505,7 @@ class PlanckSkyModel(object):
         correction : float
             Correction factor; divide a T_CMB quantity by this to obtain T_RJ.
         """
-        freq = freq_ghz * 10.**9.
+        freq = freq_ghz * 1e9 # Hz
         factor = H_PLANCK * freq / (K_BOLTZ * CMB_TEMP)
         correction = (np.exp(factor)-1.)**2. / (factor**2. * np.exp(factor))
         return correction
@@ -536,7 +536,7 @@ class PlanckSkyModel(object):
     
     
     def synch_freefree_maps(self, redshift=None, rotation=(0., -62., 0.), 
-                            ref_freq=1000., seed_syncidx=None):
+                            ref_freq=1000., free_idx=None, seed_syncidx=None):
         """Calculate free-free and synchrotron amplitude and spectral index maps.
         
         Uses a set of Planck simulations to calculate maps of the synchrotron 
@@ -558,6 +558,10 @@ class PlanckSkyModel(object):
         ref_freq : float, optional
             Reference frequency to evaluate the amplitudes at, in MHz. 
             Default: 1000. [MHz].
+        
+        free_idx : float, optional
+            If set, replace the default free-free index with this value. 
+            Default: None.
         
         seed_syncidx : int, optional
             Random seed to use when generating the small-scale spectral index 
@@ -582,6 +586,10 @@ class PlanckSkyModel(object):
 
         # Get rid of unphysical values
         free217[np.where(free217 < 0.)[0]] = np.percentile(free217, 3)
+        
+        # Get free-free spectral index
+        if free_idx is None:
+            free_idx = self.free_idx
         
         # Calculate synchrotron spectral index
         sync_idx = np.log(sync353/ sync217) / np.log(353./217.)
