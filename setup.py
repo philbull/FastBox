@@ -10,8 +10,8 @@ setup_args = {
     'name': 'fastbox',
     'author': 'Phil Bull',
     'url': 'https://github.com/philbull/FastBox',
-    'license': 'Undefined',
-    'version': '0.0.1',
+    'license': 'MIT',
+    'version': '0.0.9',
     'description': 'Fast simulations of cosmological density fields, subject to anisotropic filtering, biasing, redshift-space distortions, foregrounds etc.',
     'packages': ['fastbox'],
     'package_dir': {'fastbox': 'fastbox'},
@@ -20,9 +20,9 @@ setup_args = {
         'scipy>=1.5',
         'matplotlib>=2.2',
         'sklearn',
-        'lmfit',
         'pyccl'
     ],
+    'extras_require': {'fgextras': ['healpy', 'lmfit', 'multiprocessing']},
     'include_package_data': True,
     'zip_safe': False
 }
