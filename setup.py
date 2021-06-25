@@ -23,6 +23,7 @@ setup_args = {
         'pyccl'
     ],
     'extras_require': {'fgextras': ['healpy', 'lmfit', 'multiprocessing']},
+    'scripts': ['scripts/get_planck_maps.sh'],
     'include_package_data': True,
     'zip_safe': False
 }
