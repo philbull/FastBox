@@ -4,6 +4,6 @@ echo "Downloading Planck Sky Model maps"
 echo "(approx. 2.5 GB download)"
 for f in $planck_maps; do
   echo "Downloading $f...";
-  wget -O fastbox/$f "http://pla.esac.esa.int/pla/aio/product-action?SIMULATED_MAP.FILE_ID=$f";
+  wget -O ../fastbox/$f "http://pla.esac.esa.int/pla/aio/product-action?SIMULATED_MAP.FILE_ID=$f";
   done
 echo "Finished."

@@ -3,8 +3,8 @@ import os
 import sys
 from setuptools import setup
 
-#download the planck maps
-os. system('./get_planck_maps.sh')
+# Download the Planck maps
+# os.system('./scripts/get_planck_maps.sh')
 
 setup_args = {
     'name': 'fastbox',
