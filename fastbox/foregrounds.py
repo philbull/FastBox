@@ -440,7 +440,7 @@ class PointSourceModel(object):
              * (freqs[np.newaxis,np.newaxis,:]/1400.)**(spidxs[:,:,np.newaxis])
         
         # Mean temperature vs freq.
-        T_ps_mean = T_ps0 * (freqs/1400.)**beta).reshape(nfreq, 1)
+        T_ps_mean = (T_ps0 * (freqs/1400.)**beta).reshape(nfreq, 1)
 
         return maps*1e3, T_ps_mean*1e3 # mK
 
