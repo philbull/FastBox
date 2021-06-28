@@ -218,7 +218,7 @@ class GlobalSkyModel(object):
             as self.box.redshift.
         
         loop : bool, optional
-            Whether to fetch the GSM maps for all frequency channells at once 
+            Whether to fetch the GSM maps for all frequency channels at once 
             (False), or to loop through them one by one (True). Default: False.
         
         verbose : bool, optional
@@ -252,7 +252,7 @@ class GlobalSkyModel(object):
                 m = self.gsm.generate(freq)
                 nside = hp.npix2nside(m.size)
                 fgcube[:,:,i] = proj.projmap(m, vec2pix_func=partial(hp.vec2pix, nside))
-        ellse:
+        else:
             # Fetch all maps in one go
             maps = self.gsm.generate(freqs)
             nside = hp.npix2nside(maps[0].size)
@@ -349,7 +349,7 @@ class PointSourceModel(object):
             ``gnomview`` when projecting the field. Default: (0., -62., 0.)
         
         seed_clustering, seed_poisson : int, optional
-            Random seed used by the clustering and Poisson modells. 
+            Random seed used by the clustering and Poisson models. 
             Defaults: None.
         
         Returns
