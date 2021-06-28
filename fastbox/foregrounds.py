@@ -500,7 +500,7 @@ class PlanckSkyModel(object):
             Correction factor; divide a T_CMB quantity by this to obtain T_RJ.
         """
         freq = freq_ghz * 1e9 # Hz
-        factor = H_PLANCK * freq / (K_BOLTZ * CMB_TEMP)
+        factor = H_PLANCK * freq / (KBOLTZ * CMB_TEMP)
         correction = (np.exp(factor)-1.)**2. / (factor**2. * np.exp(factor))
         return correction
     
