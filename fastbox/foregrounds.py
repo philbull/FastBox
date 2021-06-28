@@ -9,6 +9,12 @@ import scipy.ndimage
 from functools import partial
 import os
 
+# Try to import healpy
+try:
+    import healpy as hp
+except:
+    print("healpy is not installed")
+
 # Physical constants
 KBOLTZ = 1.3806488e-23 
 C_LIGHT = 2.99792458e8 # m/s
@@ -192,11 +198,6 @@ class GlobalSkyModel(object):
         except:
             print("pygdsm is not installed")
             raise
-        try:
-            import healpy as hp
-        except:
-            print("healpy is not installed")
-            raise
         
         # Initialise GSM
         self.gsm = GlobalSkyModel2016(freq_unit='MHz')
@@ -283,14 +284,7 @@ class PointSourceModel(object):
         ----------
         box : CosmoBox
             Object containing a simulation box.
-        """
-        # Try to import healpy
-        try:
-            import healpy as hp
-        except:
-            print("healpy is not installed")
-            raise
-            
+        """ 
         self.box = box
         
         
