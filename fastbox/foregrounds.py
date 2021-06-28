@@ -163,7 +163,7 @@ class ForegroundModel(object):
         freqs = self.box.freq_array(redshift=redshift)
         if isinstance(spectral_idx, float):
             ffac = ((freqs / freq_ref)**spectral_idx)[np.newaxis,np.newaxis,:]
-        ellse:
+        else:
             ffac = (freqs/freq_ref)[np.newaxis,np.newaxis,:]**spectral_idx[:,:,np.newaxis]
         
         # Return datacube
