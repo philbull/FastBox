@@ -380,10 +380,11 @@ class PointSourceModel(object):
         # Get the poisson contribution
         # Under 0.01 Jy, Poisson contributions behave as Gaussians
         cl_poisson_low = np.zeros((len(ell)))
-        for ival in np.arange(1e-6, 0.01, (0.01 - 1e-6)/len(ell)):
+        vals = np.arange(1e-6, 0.01, (0.01 - 1e-6)/len(ell))
+        for j, ival in enumerate(vals):
             # FIXME: Use cumtrapz here instead
             intvals = scipy.integrate.quad(lambda sjy: self.poisson_pspec(sjy), 0., ival)
-            cl_poisson_low[val] = cfact**2 * (intvals[0] - intvals[1])
+            cl_poisson_low[j] = cfact**2 * (intvals[0] - intvals[1])
         
         np.random.seed(seed_poisson)
         poisson_low_map = hp.sphtfunc.synfast(cl_poisson_low, nside, new=True)
