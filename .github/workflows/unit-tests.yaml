@@ -37,7 +37,7 @@ jobs:
         run: |
           which pip
           pip install numpy
-          pip install scipy matplotlib sklearn pytest
+          pip install scipy matplotlib sklearn pytest ipython
           pip install pyccl
           pip install nbodykit
           pip install .[tests]
