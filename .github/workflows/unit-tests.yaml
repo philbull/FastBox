@@ -37,14 +37,14 @@ jobs:
         run: |
           which pip
           pip install numpy
-          pip install scipy matplotlib sklearn
+          pip install scipy matplotlib sklearn pytest
           pip install pyccl
           pip install nbodykit
           pip install .[tests]
 
       - name: Run Tests
         run: |
-          python -m pytest
+          python -m pytest tests/
 
       - name: "Upload coverage to Codecov"
         uses: codecov/codecov-action@v1
