@@ -20,7 +20,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
-        python-version: [3.8, 3.9]
+        python-version: [3.9]
     steps:
       - uses: actions/checkout@master
         with:
@@ -37,14 +37,14 @@ jobs:
         run: |
           which pip
           pip install numpy
-          pip install scipy matplotlib sklearn pytest ipython
+          pip install scipy matplotlib sklearn pytest ipython coverage
           pip install pyccl
           pip install nbodykit
-          pip install .[tests]
+          pip install .
 
       - name: Run Tests
         run: |
-          python -m pytest tests/
+          python -m pytest --cov=fastbox tests/
 
       - name: "Upload coverage to Codecov"
         uses: codecov/codecov-action@v1
