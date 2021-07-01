@@ -66,8 +66,8 @@ class NoiseModel(object):
         t_res = tp * dtheta**2. / fov # fov also in deg^2
         
         # Get Tsys as a function of frequency
-        Tsky = 60e3 * (freqs / 300.)**(-2.5) # Kelvin
-        Tsys = Tinst + Tsky
+        Tsky = 60e3 * (freqs / 300.)**(-2.5) # mK
+        Tsys = Tinst*1e3 + Tsky # mK
         
         # Noise rms from the radiometer equation (fn. of frequency only)
         sigma_rms = Tsys / np.sqrt(Ndish * t_res * (dnu * 1e6))

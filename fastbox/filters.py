@@ -13,6 +13,68 @@ from multiprocessing import Queue, Process
 from .foregrounds import PointSourceModel, PlanckSkyModel
 
 
+def mean_spectrum_filter(field):
+    """
+    Subtract the mean from each frequency slice.
+    
+    Parameters
+    ----------
+    field : array_like
+        3D array containing the field that the filter will be applied to. 
+        NOTE: This assumes that the 3rd axis of the array is frequency.
+    
+    Returns
+    -------
+    sub_field : array_like
+        3D array containing the field with the mean at each frequency 
+        subtracted.
+    """
+    # Calculate freq-freq covariance matrix
+    d = field.reshape((-1, field.shape[-1])) # (Nxpix * Nypix, Nfreqs)
+    
+    # Calculate average spectrum (avg. over pixels, as a function of frequency)
+    d_mean = np.mean(d, axis=0)[np.newaxis,:]
+    x = d - d_mean # mean-subtracted data
+    return x.reshape(field.shape)
+
+
+def angular_bandpass_filter(field, kmin, kmax, d=1.):
+    """
+    Apply a top-hat bandpass filter to the field in each frequency channel 
+    (i.e. each 2D slice) of a datacube.
+    
+    Parameters
+    ----------
+    field : array_like
+        3D array containing the field that the filter will be applied to. 
+        NOTE: This assumes that the 3rd axis of the array is frequency.
+    
+    kmin, kmax : array_like
+        The Fourier wavenumbers defining the edges of the bandpass filter. The 
+        units are defined by ``fft.fftfreq``. The bandpass filter is applied to 
+        the magnitude of the 2D wavevector, k_perp = sqrt(k_x^2 + k_y^2).
+    
+    d : float, optional
+        The pixel width parameter used by ``fft.fftfreq``. Default: 1.
+    
+    Returns
+    -------
+    filtered_field : array_like
+        3D array containing the field with the angular bandpass filter applied.
+    """
+    # 2D FFT of field in transverse direction only
+    field_k = np.fft.fftn(field, axes=[0,1])
+    
+    # Get frequencies
+    kx = fft.fftfreq(field.shape[0], d=d)
+    kx, ky = np.meshgrid(kx, kx)
+    k = np.sqrt(kx**2. + ky**2.)
+    
+    # Filter frequencies that are out of range
+    field_k[~np.logical_and(k >= kmin, k < kmax)] *= 0.
+    return np.fft.ifftn(field_k, axes=[0,1])
+
+
 def pca_filter(field, nmodes, fit_powerlaw=False, return_filter=False):
     """
     Apply a Principal Component Analysis (PCA) filter to a field. This 
@@ -58,7 +120,7 @@ def pca_filter(field, nmodes, fit_powerlaw=False, return_filter=False):
         Foreground mode amplitudes per pixel, shape (Nmodes, Npix). Only 
         returned if `return_operator = True`.
     """
-    # Calculate freq-freq covariance matrix
+    # Reshape field
     d = field.reshape((-1, field.shape[-1])).T # (Nfreqs, Nxpix * Nypix)
     
     # Calculate average spectrum (avg. over pixels, as a function of frequency)
@@ -147,12 +209,8 @@ def ica_filter(field, nmodes, return_filter=False, **kwargs_ica):
             x_fg = transformer.inverse_transform(x_trans).T # foreground model
             ```
     """
-    # Calculate freq-freq covariance matrix
-    d = field.reshape((-1, field.shape[-1])).T # (Nfreqs, Nxpix * Nypix)
-    
-    # Calculate average spectrum (avg. over pixels, as a function of frequency)
-    d_mean = np.mean(d, axis=-1)[:,np.newaxis]
-    x = d - d_mean # mean-subtracted data
+    # Subtract mean vs. frequency
+    x = mean_spectrum_filter(field).reshape((-1, field.shape[-1])).T
     
     # Build ICA model and get amplitudes for each mode per pixel
     transformer = FastICA(n_components=nmodes, **kwargs_ica)
@@ -213,12 +271,8 @@ def kernel_pca_filter(field, nmodes, return_filter=False, **kwargs_pca):
             x_fg = transformer.inverse_transform(x_trans).T # foreground model
             ```
     """
-    # Calculate freq-freq covariance matrix
-    d = field.reshape((-1, field.shape[-1])).T # (Nfreqs, Nxpix * Nypix)
-
-    # Calculate average spectrum (avg. over pixels, as a function of frequency)
-    d_mean = np.mean(d, axis=-1)[:,np.newaxis]
-    x = d - d_mean # mean-subtracted data
+    # Subtract mean vs. frequency
+    x = mean_spectrum_filter(field).reshape((-1, field.shape[-1])).T
 
     # Build PCA model and get amplitudes for each mode per pixel
     transformer = KernelPCA(n_components=nmodes, fit_inverse_transform=True, **kwargs_pca)
@@ -284,12 +338,8 @@ def kernel_pca_filter_legacy(field, nmodes, return_filter=False, **kwargs_pca):
             x_fg = transformer.inverse_transform(x_trans).T # foreground model
             ```
     """
-    # Calculate freq-freq covariance matrix
-    d = field.reshape((-1, field.shape[-1])).T # (Nfreqs, Nxpix * Nypix)
-
-    # Calculate average spectrum (avg. over pixels, as a function of frequency)
-    d_mean = np.mean(d, axis=-1)[:,np.newaxis]
-    x = d - d_mean # mean-subtracted data
+    # Subtract mean vs. frequency
+    x = mean_spectrum_filter(field).reshape((-1, field.shape[-1])).T
 
     # Build PCA model and get amplitudes for each mode per pixel
     transformer = KernelPCA(n_components=nmodes, fit_inverse_transform=True, **kwargs_pca)
@@ -370,6 +420,66 @@ def nmf_filter(field, nmodes, return_filter=False, **kwargs_nmf):
     else:
         return x_clean
 
+
+def bandpower_pca_filter(field, nbands, modes):
+    """
+    Generate a series of bandpass-filtered datacubes and then PCA filter each 
+    of them. The number of modes subtracted can be chosen separately for each 
+    sub-band.
+    
+    N.B. The bandpass filters are contiguous top-hat filters of equal width in 
+    Fourier space.
+    
+    Parameters
+    ----------
+    field : array_like
+        3D array containing the field that the filter will be applied to. 
+        NOTE: This assumes that the 3rd axis of the array is frequency.
+        
+    nbands : int
+        How many sub-bands to divide the band into.
+    
+    nmodes : array_like or int
+        Number of eigenmodes to filter out in each sub-band.
+        This can be an array with a value per sub-band, 
+        or a single integer for all bands.
+    
+    Returns
+    -------
+    cleaned_field : array_like
+        Foreground-cleaned field.
+    """
+    # Expand modes array if needed
+    if isinstance(modes, (int, np.integer)):
+        modes = modes * np.ones(nbands, dtype=int)
+        
+    # Check for correct number of modes/bin edges
+    assert nbands == len(modes), \
+        "len(modes) must equal nbands"
+    
+    # Get min/max frequencies and use to define the sub-bands
+    kx = fft.fftfreq(field.shape[0], d=1.)
+    kx, ky = np.meshgrid(kx, kx)
+    k = np.sqrt(kx**2. + ky**2.)
+    band_edges = np.linspace(np.min(k), np.max(k), nbands+1)
+    
+    # Mean-subtracted field
+    x = mean_spectrum_filter(field)
+    
+    # Loop over bands
+    bpf_cleaned = 0
+    for i in range(len(band_edges)-1):
+        # Apply bandpass filter
+        bpf_cube = angular_bandpass_filter(x, 
+                                           kmin=band_edges[i], 
+                                           kmax=band_edges[i+1])
+        
+        # Apply PCA cleaning
+        _bpf_cleaned = fastbox.filters.pca_filter(bpf_cube, 
+                                                  nmodes=modes[i], 
+                                                  return_filter=False)
+        bpf_cleaned += _bpf_cleaned
+    return bpf_cleaned
 
 
 class LSQfitting(object):
@@ -529,4 +639,5 @@ class LSQfitting(object):
         bspec = spec.reshape(xside, yside)
         
         return residual, bspec
+
 
