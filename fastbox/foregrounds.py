@@ -9,11 +9,13 @@ import scipy.ndimage
 from functools import partial
 import os
 
-# Try to import healpy
+# Load optional modules
 try:
     import healpy as hp
 except:
-    print("healpy is not installed")
+    warnings.warn("Module `healpy` not found. Some functions in "    
+                  "fastbox.foregrounds will not work", 
+                  ImportWarning)
 
 # Physical constants
 KBOLTZ = 1.3806488e-23 

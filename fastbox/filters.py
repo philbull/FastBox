@@ -17,13 +17,13 @@ try:
 except:
     warnings.warn("Module `lmfit` not found. Some functions in "    
                   "fastbox.filters will not work", 
-                  warnings.ImportWarning)
+                  ImportWarning)
 try:
     from multiprocessing import Queue, Process
 except:
     warnings.warn("Module `multiprocessing` not found. Some functions in "
                   "fastbox.filters will not work", 
-                  warnings.ImportWarning)
+                  ImportWarning)
 
 
 def mean_spectrum_filter(field):
