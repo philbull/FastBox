@@ -45,9 +45,20 @@ jobs:
 
       - name: Run Tests
         run: |
-          pytest --pyargs fastbox --cov=fastbox fastbox/tests/
+          pytest --cov=fastbox \
+                 --cov-config="./.coveragerc" \
+                 --cov-report xml:"./coverage.xml" \
+                 --junitxml="./test-reports/xunit.xml"
 
       - name: "Upload coverage to Codecov"
-        if: success()
-        run: |
-          bash <(curl -s https://codecov.io/bash) -t ${{ secrets.CODECOV_TOKEN }}
+        uses: codecov/codecov-action@v1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage.xml
+          directory: ./coverage/reports/
+          flags: unittests
+          env_vars: OS,PYTHON
+          name: codecov-umbrella
+          fail_ci_if_error: true
+          path_to_write_report: ./coverage/codecov_report.txt
+          verbose: true
