@@ -38,7 +38,8 @@ jobs:
         run: |
           which pip
           pip install numpy
-          pip install scipy matplotlib sklearn pytest ipython coverage pytest-cov cython
+          pip install scipy matplotlib sklearn pytest ipython coverage \
+                      pytest-cov cython mpi4py
           pip install pyccl
           pip install nbodykit
           pip install .
@@ -53,7 +54,7 @@ jobs:
       - name: "Upload coverage to Codecov"
         uses: codecov/codecov-action@v1
         with:
-          token: ${{ secrets.CODECOV_TOKEN }}
+          token: ""
           files: ./coverage.xml
           directory: ./coverage/reports/
           flags: unittests
