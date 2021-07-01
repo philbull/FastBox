@@ -7,10 +7,23 @@ import pylab as plt
 from numpy import fft
 from scipy.optimize import curve_fit
 from sklearn.decomposition import FastICA, NMF, KernelPCA
-from lmfit import Minimizer, Parameters
-from multiprocessing import Queue, Process
+import warnings
 
 from .foregrounds import PointSourceModel, PlanckSkyModel
+
+# Load optional modules
+try:
+    from lmfit import Minimizer, Parameters
+except:
+    warnings.warn("Module `lmfit` not found. Some functions in "    
+                  "fastbox.filters will not work", 
+                  warnings.ImportWarning)
+try:
+    from multiprocessing import Queue, Process
+except:
+    warnings.warn("Module `multiprocessing` not found. Some functions in "
+                  "fastbox.filters will not work", 
+                  warnings.ImportWarning)
 
 
 def mean_spectrum_filter(field):
