@@ -7,7 +7,7 @@ import pylab as plt
 from numpy import fft
 import scipy.ndimage
 from functools import partial
-import os
+import os, warnings
 
 # Load optional modules
 try:
