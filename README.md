@@ -1,4 +1,7 @@
 # FastBox
+
+[![Documentation Status](https://readthedocs.org/projects/fastbox/badge/?version=latest)](https://fastbox.readthedocs.io/en/latest/?badge=latest)
+
 Fast simulations of cosmological density fields, 
 subject to anisotropic filtering, biasing, 
 redshift-space distortions, foregrounds etc. This 
@@ -7,11 +10,28 @@ post-EoR 21cm intensity maps and their cross-correlation
 with galaxy samples, with enough complexity to test 
 realistic cosmological analysis methods.
 
-Current features include:
+## Installation
+
+To install `fastbox`, simply run `python setup.py install`. The following are required dependencies (all of which can be installed via `pip`):
+
+* `numpy>=1.18`
+* `scipy>=1.5`
+* `matplotlib>=2.2`
+* `scikit-learn`
+* `pyccl`
+
+The following optional dependencies are needed for some of the foreground modelling and filtering functions to work:
+
+* `healpy`
+* `lmfit`
+* `multiprocessing`
+
+## Current features
+
  - Gaussian and log-normal density fields for any cosmology
  - Redshift-space transform, linear biasing etc
  - Arbitrary anisotropic filters as a function of 
-   k_perp and k_parallel
+   kperp and kparallel
  - Poisson realisations of halo/galaxy samples
  - Radio noise and foregrounds
  - Simple foreground filtering (via PCA and ICA)

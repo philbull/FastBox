@@ -2,6 +2,8 @@ site_name: FastBox
 
 theme:
   name: "material"
+  features:
+    - navigation.expand
 
 plugins:
   - mkdocstrings:
