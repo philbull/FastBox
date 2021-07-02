@@ -6,6 +6,27 @@ theme:
 plugins:
   - search
   - mkdocstrings
+      handlers:
+        python:
+          setup_commands:
+            - import sys
+            - from unittest.mock import MagicMock as mock
+            - sys.modules["numpy"] = mock()
+            - sys.modules["numpy.fft"] = mock()
+            - sys.modules["scipy.ndimage"] = mock()
+            - sys.modules["scipy.signal"] = mock()
+            - sys.modules["scipy.integrate"] = mock()
+            - sys.modules["scipy.interpolate"] = mock()
+            - sys.modules["scipy.optimize"] = mock()
+            - sys.modules["sklearn"] = mock()
+            - sys.modules["sklearn.decomposition"] = mock()
+            - sys.modules["IPython"] = mock()
+            - sys.modules["IPython.display"] = mock()
+            - sys.modules["pylab"] = mock()
+            - sys.modules["matplotlib"] = mock()
+            - sys.modules["pyccl"] = mock()
+            - sys.modules["multiprocessing"] = mock()
+            - sys.modules["katbeam"] = mock()
 
 nav:
   - Home: index.md
