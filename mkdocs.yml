@@ -12,6 +12,7 @@ plugins:
             - from unittest.mock import MagicMock as mock
             - sys.modules["numpy"] = mock()
             - sys.modules["numpy.fft"] = mock()
+            - sys.modules["scipy"] = mock()
             - sys.modules["scipy.ndimage"] = mock()
             - sys.modules["scipy.signal"] = mock()
             - sys.modules["scipy.integrate"] = mock()
