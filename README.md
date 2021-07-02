@@ -33,9 +33,11 @@ The following optional dependencies are needed for some of the foreground modell
  - Arbitrary anisotropic filters as a function of 
    kperp and kparallel
  - Poisson realisations of halo/galaxy samples
- - Radio noise and foregrounds
- - Simple foreground filtering (via PCA and ICA)
- - Integration with the DESC Core Cosmology Library
- - Power spectra, correlation functions, and their 
-   multipoles, via nbodykit
+ - Radiometer noise and beam convolutions (FFT and direct convolution)
+ - Several diffuse and point source foreground models, including GSM, Planck 
+   Sky Model, and the Battye et al. point source model.
+ - Foreground filtering via PCA, ICA, Kernel PCA, least-squares etc.
+ - Integration with the DESC Core Cosmology Library (`pyccl`)
+ - Calculate power spectra, correlation functions, and their 
+   multipoles, via `nbodykit`
 
