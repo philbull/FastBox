@@ -6,7 +6,7 @@ dependencies:
   - numpy>=1.18
   - scipy>=1.5
   - matplotlib>=2.2
-  - sklearn
+  - scikit-learn
   - pip:
     - mkdocstrings
     - mkdocs-material
