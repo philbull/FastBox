@@ -1,0 +1,20 @@
+site_name: FastBox
+
+theme:
+  name: "material"
+
+plugins:
+  - search
+  - mkdocstrings
+
+nav:
+  - Home: index.md
+  - Code Reference:
+      - Box: box.md
+      - Beams: beams.md
+      - Filters: filters.md
+      - Foregrounds: foregrounds.md
+      - Halos: halos.md
+      - Noise: noise.md
+      - Plot: plot.md
+      - Tracers: tracers.md
