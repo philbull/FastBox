@@ -40,4 +40,5 @@ The following optional dependencies are needed for some of the foreground modell
  - Integration with the DESC Core Cosmology Library (`pyccl`)
  - Calculate power spectra, correlation functions, and their 
    multipoles, via `nbodykit`
+ - Detect and generate catalogues of cosmic voids
 
