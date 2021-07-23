@@ -7,6 +7,23 @@ import pylab as plt
 from numpy import fft
 from scipy.optimize import curve_fit
 from sklearn.decomposition import FastICA, NMF, KernelPCA
+import warnings
+
+from .foregrounds import PointSourceModel, PlanckSkyModel
+
+# Load optional modules
+try:
+    from lmfit import Minimizer, Parameters
+except:
+    warnings.warn("Module `lmfit` not found. Some functions in "    
+                  "fastbox.filters will not work", 
+                  ImportWarning)
+try:
+    from multiprocessing import Queue, Process
+except:
+    warnings.warn("Module `multiprocessing` not found. Some functions in "
+                  "fastbox.filters will not work", 
+                  ImportWarning)
 
 
 def mean_spectrum_filter(field):
@@ -417,7 +434,6 @@ def nmf_filter(field, nmodes, return_filter=False, **kwargs_nmf):
         return x_clean
 
 
-
 def bandpower_pca_filter(field, nbands, modes):
     """
     Generate a series of bandpass-filtered datacubes and then PCA filter each 
@@ -477,5 +493,164 @@ def bandpower_pca_filter(field, nbands, modes):
                                                   return_filter=False)
         bpf_cleaned += _bpf_cleaned
     return bpf_cleaned
+
+
+class LSQfitting(object):
+
+    def __init__(self, box):
+        """Perform a least-squares model fit on a data cube.
+        
+        Uses a synchrotron-like power law model for the component to be removed.
+
+        Parameters
+        ----------
+        box : CosmoBox
+            Object containing a simulation box.
+        """
+        self.box = box
+    
+    
+    def resid_synch(self, params, freqs, data, **kwargs):
+        """Synchrotron model residuals.
+        
+        Parameters
+        ----------
+        
+        """
+        freqS = kwargs['freqS']
+        noise = kwargs['noise']
+        betaS = params['betaS']
+        ampS = params['ampS']
+    
+        x_ghz = np.array(freqs)
+        tot = ampS * (x_ghz / freqS) ** (betaS)
+        weights = 1./noise**2
+        return weights * (tot - data)
+    
+    
+    def do_loop(self, ii, bits, data, noise, freqs, bsval, syamp, ffamp, mod, 
+                bidea, freeind, queue):
+        """."""
+        nfreqs = freqs.size
+        star = bits[ii]
+        enl = bits[ii+1]
+
+        for xno in range(star, enl):
+
+            tval = data[xno, :]
+            noval = noise[xno, :]
+            bgu = bidea[xno]
+        
+            kwsdict = {'noise':noval, 'freqS':freqs[0]}
+            params = Parameters()
+            params.add('betaS', value=bgu, min=bgu*1.1, max=bgu*0.9)
+            params.add('ampS', value=tval[0]*0.9, min=tval[0]*0.5, max=tval[0]*1.5)
+ 
+            resultpre = Minimizer(self.resid_synch, params, fcn_args=(freqs, tval), fcn_kws=kwsdict)
+            result = resultpre.minimize('least_sqaures')
+            val_dic = result.params
+
+            bsval[xno] = np.array(val_dic["betaS"])
+    
+            #getting amps from fitted specs
+            specs = np.zeros((nfreqs, 2))
+            specs[:, 0] = (freqs / freqs[0]) ** np.array(val_dic["betaS"])
+            specs[:, 1] = (freqs / freqs[0]) ** np.array(freeind)
+    
+            num = np.dot(specs.T, tval)
+            denom = np.linalg.inv(np.dot(specs.T, specs))
+            amps = np.dot(num, denom)
+        
+            syamp[xno] = amps[0]
+            ffamp[xno] = amps[1]
+        
+            mod[xno,:] = np.dot(amps, specs.T)
+
+        queue.put([bsval[star:enl], syamp[star:enl], ffamp[star:enl], 
+                   mod[star:enl, :], star, enl])
+    
+    
+    def run_fit(self, psm, maps, freqs, numpix, tpsmean, freeind):
+        """Perform a fit to the data.
+        
+        Parameters
+        ----------
+        psm : PlanckSkyModel instance
+            Instance of the PlanckSkyModel from the ``fastbox.foregrounds`` 
+            module.
+        
+        maps : array_like
+            Data cube.
+        
+        freqs : array_like
+            Frequencies.
+        """
+        nfreqs = freqs.size
+    
+        # Noise maps; assumes noise is at the level of free-free emission
+        _, free_amp, _ = psm.synch_freefree_maps(ref_freq=900., free_idx=freeind)
+        sigma = np.std(free_amp)
+        sigmas = sigma * (freqs/900.)**(freeind)
+        noise = np.array([np.random.normal(loc=0.0, scale=sigmas[i], size=numpix) 
+                          for i in range(nfreqs)])
+        
+        # Subtract mean point source temp. from data
+        data = maps.reshape(numpix, nfreqs)- tpsmean.reshape(nfreqs, 1).T
+        
+        # Set initial parameter values in each angular pixel
+        bsval = np.zeros((numpix))
+        syamp = np.zeros((numpix))
+        ffamp = np.zeros((numpix))
+        mod = np.zeros(( numpix, nfreqs))
+
+        bput = np.log(data[:,3] / data[:,0]) / np.log(freqs[3] / freqs[0])
+        
+        # Create parallel jobs
+        queue = Queue()
+        bits = np.linspace(0, numpix, 8).astype('int')
+        processes = [Process(target=self.do_loop, 
+                             args=(intv, bits, data, noise.T, freqs, bsval, \
+                                   syamp, ffamp, mod, bput, freeind, queue)) 
+                     for intv in range(8-1)]
+        
+        # Start processes
+        for p in processes:
+            p.start()
+        for p in processes:
+            result = queue.get()
+            syamp[result[4]:result[5]] = result[1]
+            bsval[result[4]:result[5]] = result[0]
+            ffamp[result[4]:result[5]] = result[2]
+            mod[result[4]:result[5], :] = result[3]
+        for p in processes:
+            p.join()
+        
+        # Clean up and return residual
+        del queue, p, result
+        return data - mod, bsval
+    
+    
+    def give_hest(self, T_obs, freeind, psaveind, flux_cutoff, indspread, redshift=None):
+        """
+        
+        """
+        # Frequencies and angular coordinates
+        freqs = self.box.freq_array(redshift=redshift) # MHz
+        ang_x, ang_y = self.box.pixel_array(redshift=redshift)
+        xside = ang_x.size
+        yside = ang_y.size
+        
+        # Build model of the mean point source temperature vs frequency
+        psmodel = PointSourceModel(self.box)
+        _, tpsmean = psmodel.construct_cube(flux_cutoff=flux_cutoff, 
+                                            beta=psaveind, 
+                                            delta_beta=freeind)
+        
+        # Run fit
+        res, spec = self.run_fit(T_obs, freqs, xside*yside, tpsmean, freeind)
+        residual = res.reshape(freqs.size, xside, yside)
+        bspec = spec.reshape(xside, yside)
+        
+        return residual, bspec
 
 

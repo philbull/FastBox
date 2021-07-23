@@ -660,6 +660,12 @@ class CosmoBox(object):
         redshift : float, optional
             Redshift to evaluate the centre of the box at. Default: Same value 
             as self.redshift.
+        
+        Returns
+        -------
+        pix_x, pix_y : array_like
+            Coordinates of pixel centres in the x and y directions, in degrees. 
+            The origin is the centre of the box.
         """
         # Check redshift
         if redshift is None:
@@ -752,10 +758,20 @@ class CosmoBox(object):
         Ensure that Parseval's theorem is satisfied for delta_x and delta_k, 
         i.e. <delta_x^2> = Sum_k[P(k)]. Important consistency check for FT;
         should return unity if everything is OK.
+        
+        Returns
+        -------
+        s1 : float
+            Sum (~integral) over delta_x field, ``sum(delta_x^2) * N^3``.
+        
+        s2 : float
+            Sum (~integral) over delta_k field, ``Re[sum(delta_k delta_k^*)]. 
+            Should be equal to ``s1``.
         """
         s1 = np.sum(self.delta_x**2.) * self.N**3.
         # ^ Factor of N^3 missing due to averaging
         s2 = np.sum(self.delta_k*np.conj(self.delta_k)).real
         print("Parseval test:", s1/s2, "(should be 1.0)")
+        return s1, s2
 
 
