@@ -7,6 +7,10 @@ import pylab as plt
 from numpy import fft
 from scipy.optimize import curve_fit
 from sklearn.decomposition import FastICA, NMF, KernelPCA
+try:
+    import GPy # Gaussian Process Regression library
+except:
+    pass
 
 
 def mean_spectrum_filter(field):
@@ -478,4 +482,103 @@ def bandpower_pca_filter(field, nbands, modes):
         bpf_cleaned += _bpf_cleaned
     return bpf_cleaned
 
+
+def gpr_filter(field, kernels=None, return_filter=False, opt_messages=True, 
+               opt_num_restarts=10):
+    """
+    Fit the data with a Gaussian Process Regression model in the frequency 
+    direction. The hyperparameters of the kernel(s) are optimised automatically.
+    
+    See ``https://github.com/paulassoares/gpr4im`` and arXiv:2105.12665 for a 
+    more sophisticated implementation.
+    
+    Parameters
+    ----------
+    field : array_like
+        3D array containing the field that the filter will be applied to. 
+        NOTE: This assumes that the 3rd axis of the array is frequency.
+    
+    kernel : list of ``GPy.kern``
+        List of kernel objects. If not specified, the sum of an RBF and 
+        Exponential kernel will be used. Note that the foreground component is 
+        assumed to be the first in the list.
+        
+        NOTE: For each kernel ``k`` passed-in manually, make sure to call the 
+        ``k.variance.constrain_bounded`` and ``k.lengthscale.constrain_bounded`` 
+        methods to set the prior ranges of the hyperparameters. By default 
+        these are set to reasonable ranges for the input signal, assuming 
+        spectrally-smooth foregrounds dominate the variance, and a non-smooth, 
+        low-variance signal.
+    
+    return_filter : bool, optional
+        Whether to also return the GPR filter object. Default: False.
+    
+    opt_messages : bool, optional
+        Whether to print status messages as the optimiser runs. Default: True.
+    
+    opt_num_restarts : int, optional
+        Number of optimiser restarts to allow. Default: 10.
+    
+    Returns
+    -------
+    cleaned_field : array_like
+        Foreground-cleaned field.
+
+    gpr : ``GPy.models.GPRegression`` object 
+        GPy GPR handler object.
+    """
+    # Check that GPy is available
+    try:
+        GPy.__version__
+    except:
+        raise ImportError("The GPy module must be installed to use this function.")
+        
+    # Reshape and mean-centre the input data
+    x = mean_spectrum_filter(field).reshape((-1, field.shape[-1])).T
+    
+    # Frequency on the unit interval
+    Nfreq, Npix = x.shape
+    nu = np.linspace(0., 1., Nfreq)
+
+    # Construct total kernel
+    if kernels is None:
+        
+        # Foreground kernel
+        kernel_fg = GPy.kern.RBF(input_dim=1, variance=1., lengthscale=0.1)
+        var = np.var(x)
+        kernel_fg.variance.constrain_bounded(1e-4*var, 1e2*var) # most of variance is FGs
+        kernel_fg.lengthscale.constrain_bounded(1e-3, 1e2) # O(1) lengthscale
+        
+        # 21cm signal kernel
+        kernel_signal = GPy.kern.Exponential(1)
+        kernel_signal.variance.constrain_bounded(1e-14*var, 1e-4*var) # small variance
+        kernel_signal.lengthscale.constrain_bounded(1e-6, 1e-3) # small lengthscale
+        
+        # Combine kernels
+        kernel = kernel_fg + kernel_signal
+    else:
+        kernel = 0
+        for k in kernels:
+            kernel += k
+    
+    # Construct GPR object
+    model = GPy.models.GPRegression(X=nu[:,np.newaxis], Y=x, kernel=kernel)
+    
+    # Optimise the hyperparameters
+    model.optimize(messages=opt_messages)
+    model.optimize_restarts(num_restarts=opt_num_restarts)
+    
+    # Get foreground component and predict values at each datapoint
+    kernel_fg = model.kern.parts[0]
+    x_fg, cov_fg = model.predict(nu[:,np.newaxis], full_cov=True, 
+                                   kern=kernel_fg, include_likelihood=False)
+    
+    # Construct residual
+    x_clean = (x - x_fg).T.reshape(field.shape)
+    
+    # Return residual (and optionally GPR object)
+    if return_filter:
+        return x_clean, model
+    else:
+        return x_clean
 
