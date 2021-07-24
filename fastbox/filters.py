@@ -509,6 +509,9 @@ def gpr_filter(field, kernels=None, return_filter=False, opt_messages=True,
         these are set to reasonable ranges for the input signal, assuming 
         spectrally-smooth foregrounds dominate the variance, and a non-smooth, 
         low-variance signal.
+        
+        NOTE: The length scales of the kernel are normalised so that the full 
+        frequency range is on the unit interval, [0, 1].
     
     return_filter : bool, optional
         Whether to also return the GPR filter object. Default: False.
