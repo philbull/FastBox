@@ -25,6 +25,7 @@ The following optional dependencies are needed for some of the foreground modell
 * `healpy`
 * `lmfit`
 * `multiprocessing`
+* `GPy`
 
 ## Current features
 

@@ -22,7 +22,7 @@ setup_args = {
         'sklearn',
         'pyccl'
     ],
-    'extras_require': {'fgextras': ['healpy', 'lmfit', 'multiprocessing']},
+    'extras_require': {'fgextras': ['healpy', 'lmfit', 'multiprocessing', 'GPy']},
     'scripts': ['scripts/get_planck_maps.sh'],
     'include_package_data': True,
     'zip_safe': False
