@@ -518,17 +518,21 @@ class CosmoBox(object):
         # Fractional matter density
         Omega_m = self.cosmo['Omega_c'] + self.cosmo['Omega_b']
         
+        # Power spectrum function at z=0, in h/Mpc units
+        h = self.cosmo['h']
+        pspec = lambda k: h**3. * ccl.linear_matter_power(self.cosmo, k * h, a=1.)
+        
         # Initialise COLABox object
         # (note that the input matter power spectrum should be evaluated at z=0)
         box = pycola3.COLABox(
             ngrid=self.N,
             nparticles=self.N,
-            box_size=self.Lx * self.cosmo['h'], # Mpc/h
+            box_size=self.Lx * h, # Mpc/h
             z_init=redshift_init,
             z_final=redshift,
             omega_m=Omega_m,
-            h=self.cosmo['h'],
-            pspec_file="camb_matterpower_z0.dat", # FIXME
+            h=h,
+            pspec=pspec
         )
 
         # Initialise initial particle displacements
