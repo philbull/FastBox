@@ -580,8 +580,15 @@ class CosmoBox(object):
                                     method=method,
                                     fill_value=0.).reshape(vel_x.shape)
             
-            # FIXME: Rescale units of velocity
-            raise NotImplementedError("velocity units have not been rescaled")    
+            # Rescale units of velocity (see evolve.py)
+            # v_{rsd}\equiv (ds/d\eta)/(a H(a))
+            a_final = 1. / (1. + redshift)
+            rsd_fac = a_final / pycola3.growth._q_factor(a_final, Omega_m, 1.-Omega_m)
+            H0 = 100. * self.cosmo['h'] # H_0 in km/s
+            vel_x *= H0 / rsd_fac # FIXME: Check factor!
+            vel_y *= H0 / rsd_fac
+            vel_z *= H0 / rsd_fac
+            
             return delta_x, vel_x, vel_y, vel_z
         
         # Return density field only
