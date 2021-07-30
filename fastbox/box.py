@@ -6,7 +6,7 @@ Generate a 3D box in real space with some power spectrum.
 import numpy as np
 import scipy.integrate
 import scipy.ndimage
-import scipy.interpolate
+from scipy.interpolate import griddata
 import pyccl as ccl
 import pylab as plt
 from numpy import fft
@@ -435,11 +435,11 @@ class CosmoBox(object):
                 
                 # Remap to redshift-space (on regular grid in redshift-space 
                 # with same grid points as in 'z' array)
-                delta_s[i,j,:] = scipy.interpolate.griddata(points=(s,), 
-                                                            values=delta_x[i,j,:], 
-                                                            xi=(self.z), 
-                                                            method=method,
-                                                            fill_value=fill_value)
+                delta_s[i,j,:] = griddata(points=(s,), 
+                                          values=delta_x[i,j,:], 
+                                          xi=(self.z), 
+                                          method=method,
+                                          fill_value=fill_value)
         return delta_s
     
     
@@ -465,6 +465,127 @@ class CosmoBox(object):
         delta_ln /= np.mean(delta_ln)
         delta_ln -= 1.
         return delta_ln
+    
+    
+    def realise_density_cola(self, redshift=None, redshift_init=15., 
+                             keep_velocities=True, seed=None, inplace=True):
+        """
+        Create realisation of the matter power spectrum by running a COLA 
+        (Comoving-Lagrangian) approximate N-body simulation.
+        
+        N.B: The ``pycola3`` package must be installed to use this method.
+        
+        This type of density realisation code assumes 
+        
+        Parameters
+        ----------
+        redshift : float, optional
+            If specified, use this redshift as the final redshift of the COLA 
+            evolution. Otherwise, `self.redshift` is used. Default: None.
+        
+        redshift_init : float, optional
+            The initial redshift to evolve the box from using COLA. Default: 15.
+        
+        keep_velocities : bool, optional
+            If True, deposit the velocities output by COLA onto a grid and use 
+            those as the velocity fields. Otherwise, velocity data are not 
+            stored. Default: True.
+        
+        seed : int, optional
+            Random seed to use when generating initial conditions. If None, a 
+            random integer will be used as the random seed instead. 
+            Default: None.
+        
+        inplace : bool, optional
+            If True, store the resulting density field and its Fourier transform 
+            into the `self.delta_x` and `self.delta_k` variables as well as 
+            returning `delta_x`. Default: True.
+        
+        Returns
+        -------
+        delta_x : array_like
+            3D array of delta_x values.
+        """
+        import pycola3
+        assert self.Lx == self.Ly == self.Lz, \
+            "realise_density_cola() requires a cubic box with Lx=Ly=Lz"
+        
+        # Get redshift
+        if redshift is None:
+            redshift = self.redshift
+        assert redshift_init > redshift, "Must have redshift_init > redshift"
+        
+        # Fractional matter density
+        Omega_m = self.cosmo['Omega_c'] + self.cosmo['Omega_b']
+        
+        # Initialise COLABox object
+        # (note that the input matter power spectrum should be evaluated at z=0)
+        box = pycola3.COLABox(
+            ngrid=self.N,
+            nparticles=self.N,
+            box_size=self.Lx * self.cosmo['h'], # Mpc/h
+            z_init=redshift_init,
+            z_final=redshift,
+            omega_m=Omega_m,
+            h=self.cosmo['h'],
+            pspec_file="camb_matterpower_z0.dat", # FIXME
+        )
+
+        # Initialise initial particle displacements
+        if seed is None:
+            seed = np.random.randint(0, 10000000)
+        box.generate_initial_conditions(seed=seed)
+
+        # Evolve the initial displacements until the final redshift
+        px, py, pz, vx, vy, vz = box.evolve(n_steps=int(1 + box.z_init))
+
+        # Deposit final particle disp. on regular grid to make density field
+        density = box.cic_deposit()
+        delta_x = density - 1.0  # this is valid if nparticles == ngrid
+        if inplace:
+            self.delta_x = delta_x
+        
+        # Deposit velocities onto grid
+        method = 'linear'
+        if keep_velocities:
+            # Output velocity grids
+            vel_x = np.zeros((self.N, self.N, self.N), dtype='float32')
+            vel_y = np.zeros((self.N, self.N, self.N), dtype='float32')
+            vel_z = np.zeros((self.N, self.N, self.N), dtype='float32')
+            
+            # Particle positions in COLA box
+            part_vec = np.column_stack((px.flatten(), py.flatten(), pz.flatten()))
+            part_vec /= self.cosmo['h'] # convert Mpc/h -> Mpc
+            
+            # Positions of box grid points
+            box_vec = np.column_stack((self.x.flatten() - self.x.min(), 
+                                       self.y.flatten() - self.y.min(), 
+                                       self.z.flatten() - self.z.min()))
+            
+            # Interpolate velocities onto regular grid
+            # FIXME: Beware float32 vs float64
+            vel_x[:,:,:] = griddata(points=part_vec, 
+                                    values=vx.flatten(), 
+                                    xi=box_vec, 
+                                    method=method,
+                                    fill_value=0.).reshape(vel_x.shape)
+            vel_y[:,:,:] = griddata(points=part_vec, 
+                                    values=vy.flatten(), 
+                                    xi=box_vec, 
+                                    method=method,
+                                    fill_value=0.).reshape(vel_x.shape)
+            vel_z[:,:,:] = griddata(points=part_vec, 
+                                    values=vz.flatten(), 
+                                    xi=box_vec, 
+                                    method=method,
+                                    fill_value=0.).reshape(vel_x.shape)
+            
+            # FIXME: Rescale units of velocity
+            raise NotImplementedError("velocity units have not been rescaled")    
+            return delta_x, vel_x, vel_y, vel_z
+        
+        # Return density field only
+        return delta_x
     
     ############################################################################
     # Output quantities related to the realisation
