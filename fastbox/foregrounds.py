@@ -38,10 +38,9 @@ class ForegroundModel(object):
         An object to manage the addition of foregrounds on top of a realisation 
         of a density field in a box.
         
-        Parameters
-        ----------
-        box : CosmoBox
-            Object containing a simulation box.
+        Parameters:
+            box (CosmoBox):
+                Object containing a simulation box.
         """
         self.box = box
         
@@ -52,27 +51,26 @@ class ForegroundModel(object):
         Create realisation of the matter power spectrum by randomly sampling 
         from Gaussian distributions of variance P(k) for each k mode.
         
-        Parameters
-        ----------
-        amp : float
-            Amplitude of foreground power spectrum, in units of the field 
-            squared (e.g. if the field is in units of mK, this should be in 
-            [mK]^2).
-        
-        beta : float
-            Angular power-law index.
-        
-        monopole : float
-            Zero-point offset of the foreground at the reference frequency. 
-            Should be in the same units as the field, e.g. mK.
-        
-        smoothing_scale : float, optional
-            Additional angular smoothing scale, in degrees. Default: None 
-            (no smoothing). 
+        Parameters:
+            amp (float):
+                Amplitude of foreground power spectrum, in units of the field 
+                squared (e.g. if the field is in units of mK, this should be in 
+                [mK]^2).
             
-        redshift : float, optional
-            Redshift to evaluate the centre of the box at. Default: Same value 
-            as self.box.redshift.
+            beta (float):
+                Angular power-law index.
+            
+            monopole (float):
+                Zero-point offset of the foreground at the reference frequency. 
+                Should be in the same units as the field, e.g. mK.
+            
+            smoothing_scale (float, optional):
+                Additional angular smoothing scale, in degrees. Default: None 
+                (no smoothing). 
+                
+            redshift (float, optional):
+                Redshift to evaluate the centre of the box at. Default: Same value 
+                as `self.box.redshift`.
         """
         # Check redshift
         if redshift is None:
@@ -121,20 +119,19 @@ class ForegroundModel(object):
         Generate a Gaussian random realisation of the spectral index and apply 
         a smoothing scale.
         
-        Parameters
-        ----------
-        mean_spec_idx : float
-            Mean value of the spectral index.
-        
-        std_spec_idx : float
-            Standard deviation of the spectral index.
-        
-        smoothing_scale : float
-            Angular smoothing scale, in degrees.
-        
-        redshift : float, optional
-            Redshift to evaluate the centre of the box at. Default: Same value 
-            as self.box.redshift.
+        Parameters:
+            mean_spec_idx (float):
+                Mean value of the spectral index.
+            
+            std_spec_idx (float):
+                Standard deviation of the spectral index.
+            
+            smoothing_scale (float):
+                Angular smoothing scale, in degrees.
+            
+            redshift (float, optional):
+                Redshift to evaluate the centre of the box at. Default: Same value 
+                as `self.box.redshift`.
         """
         # Generate uncorrelated Gaussian random field
         alpha = np.random.normal(mean_spec_idx, std_spec_idx, 
@@ -152,20 +149,19 @@ class ForegroundModel(object):
         Construct a foreground datacube from an input 2D amplitude map and 
         spectral index map.
         
-        Parameters
-        ----------
-        amps : array_like
-            2D array of amplitudes.
-        
-        spectral_index : array_like
-            2D array of spectral indices, or float.
-        
-        freq_ref : float, optional
-            Reference frequency, in MHz. Default: 130.
-        
-        redshift : float, optional
-            Redshift to evaluate the centre of the box at. Default: Same value 
-            as self.box.redshift.
+        Parameters:
+            amps (array_like):
+                2D array of amplitudes.
+            
+            spectral_index (array_like):
+                2D array of spectral indices, or float.
+            
+            freq_ref (float, optional):
+                Reference frequency, in MHz.
+            
+            redshift (float, optional):
+                Redshift to evaluate the centre of the box at. Default: Same value 
+                as `self.box.redshift`.
         """
         # Get frequency array and scaling
         freqs = self.box.freq_array(redshift=redshift)
@@ -187,10 +183,9 @@ class GlobalSkyModel(object):
         realisation of a density field in a box. Uses the GlobalSkyModel2016 
         class.
         
-        Parameters
-        ----------
-        box : CosmoBox
-            Object containing a simulation box.
+        Parameters:
+            box (CosmoBox):
+                Object containing a simulation box.
         """
         self.box = box
         
@@ -210,22 +205,21 @@ class GlobalSkyModel(object):
         """
         Construct a foreground datacube from GDSM.
         
-        Parameters
-        ----------
-        lat0, lon0 : float, optional
-            Latitude and longitude of the centre of the field in default pyGDSM 
-            coordinates (Galactic), in degrees. Default: 0, 0.
+        Parameters:
+            lat0, lon0 (float, optional):
+                Latitude and longitude of the centre of the field in default pyGDSM 
+                coordinates (Galactic), in degrees.
+                
+            redshift (float, optional):
+                Redshift to evaluate the centre of the box at. Default: Same value 
+                as `self.box.redshift`.
             
-        redshift : float, optional
-            Redshift to evaluate the centre of the box at. Default: Same value 
-            as self.box.redshift.
-        
-        loop : bool, optional
-            Whether to fetch the GSM maps for all frequency channels at once 
-            (False), or to loop through them one by one (True). Default: False.
-        
-        verbose : bool, optional
-            If True, print status messages. Default: True.
+            loop : bool, optional
+                Whether to fetch the GSM maps for all frequency channels at once 
+                (False), or to loop through them one by one (True).
+            
+            verbose : bool, optional
+                If True, print status messages.
         """
         import healpy as hp
         
@@ -282,10 +276,9 @@ class PointSourceModel(object):
         Based on Eq. 36 of https://arxiv.org/pdf/1209.0343.pdf; see also p99 of
         https://www.research.manchester.ac.uk/portal/files/67403180/FULL_TEXT.PDF
 
-        Parameters
-        ----------
-        box : CosmoBox
-            Object containing a simulation box.
+        Parameters:
+            box (CosmoBox):
+                Object containing a simulation box.
         """ 
         self.box = box
         
@@ -322,39 +315,38 @@ class PointSourceModel(object):
                        seed_clustering=None, seed_poisson=None):
         """Make point source emission data cube for a box.
         
-        Parameters
-        ----------
-        flux_cutoff : float
-            Maximum flux (cutoff) for the point source model, in Jy.
-        
-        beta : float
-            Mean spectral index value, beta.
-        
-        delta_beta : float
-            RMS spectral index fluctuation, delta beta.
-        
-        redshift : float, optional
-            Redshift to evaluate the model at. Default: None (uses box redshift).
-        
-        nside : int, optional
-            Healpix NSIDE map resolution parameter; must be a power of 2. 
-            Default: 256.
-        
-        rotation : tuple, optional
-            Rotation of the field from Galactic coordinates, used by healpy 
-            ``gnomview`` when projecting the field. Default: (0., -62., 0.)
-        
-        seed_clustering, seed_poisson : int, optional
-            Random seed used by the clustering and Poisson models. 
-            Defaults: None.
-        
-        Returns
-        -------
-        fg_cube : array_like
-            Point source temperature data cube (in mK).
+        Parameters:
+            flux_cutoff (float):
+                Maximum flux (cutoff) for the point source model, in Jy.
             
-        T_ps_mean : array_like
-            Mean temperature (in mK) of point source component at each freq.
+            beta (float):
+                Mean spectral index value, beta.
+            
+            delta_beta (float):
+                RMS spectral index fluctuation, delta beta.
+            
+            redshift (float, optional):
+                Redshift to evaluate the model at. Default: None (uses box redshift).
+            
+            nside (int, optional):
+                Healpix NSIDE map resolution parameter; must be a power of 2. 
+                Default: 256.
+            
+            rotation (tuple, optional):
+                Rotation of the field from Galactic coordinates, used by healpy 
+                ``gnomview`` when projecting the field.
+            
+            seed_clustering, seed_poisson (int, optional):
+                Random seed used by the clustering and Poisson models.
+        
+        Returns:
+            fg_cube, T_ps_mean (array_like):
+                Point source temperature data cube and mean temperature.
+                
+                - ``fg_cube (array_like)``: Point source temperature data cube (in mK).
+            
+                - ``T_ps_mean (array_like)``: Mean temperature (in mK) of point 
+                  source component at each freq.
         """
         # Frequency and angular pixel coordinates for the box
         freqs = self.box.freq_array(redshift=redshift) # MHz
@@ -449,20 +441,19 @@ class PlanckSkyModel(object):
         """
         An object to manage the PSM foreground model.
 
-        Parameters
-        ----------
-        box : CosmoBox
-            Object containing a simulation box.
-        
-        free_idx : float, optional
-            Spectral index of the free-free component. Default: -2.1.
-        
-        planck_sim_paths : dict
-            Dict containing paths to Planck simulations used by the sky model. 
-            Must have keys 'ff217', 'sync217', 'sync353', which are paths to 
-            .fits files containing the free-free and synchrotron temperature 
-            maps at 217 / 353 GHz as appropriate. 
-            Default: ``fastbox.foregrounds.DEFAULT_PLANCK_SIM_PATHS``
+        Parameters:
+            box (CosmoBox):
+                Object containing a simulation box.
+            
+            free_idx (float, optional):
+                Spectral index of the free-free component. Default: -2.1.
+            
+            planck_sim_paths (dict):
+                Dict containing paths to Planck simulations used by the sky model. 
+                Must have keys 'ff217', 'sync217', 'sync353', which are paths to 
+                .fits files containing the free-free and synchrotron temperature 
+                maps at 217 / 353 GHz as appropriate. 
+                Default: ``fastbox.foregrounds.DEFAULT_PLANCK_SIM_PATHS``
         """
         # Try to import healpy
         try:
@@ -492,15 +483,13 @@ class PlanckSkyModel(object):
     def planck_corr(self, freq_ghz):
         """Correction factor to convert T_CMB to T_RJ.
         
-        Parameters
-        ----------
-        freq_ghz : float
-            Frequency, in GHz.
+        Parameters:
+            freq_ghz (float):
+                Frequency, in GHz.
         
-        Returns
-        -------
-        correction : float
-            Correction factor; divide a T_CMB quantity by this to obtain T_RJ.
+        Returns:
+            correction (float):
+                Correction factor; divide a T_CMB quantity by this to obtain T_RJ.
         """
         freq = freq_ghz * 1e9 # Hz
         factor = H_PLANCK * freq / (KBOLTZ * CMB_TEMP)
@@ -514,10 +503,9 @@ class PlanckSkyModel(object):
         Reads the Planck simulation maps specified in ``self.planck_sim_paths`` 
         as Healpix maps, and converts from T_CMB to T_RJ units.
         
-        Returns
-        -------
-        free217, sync217, sync353 : array_like
-            Healpix map arrays for each simulation map.
+        Returns:
+            free217, sync217, sync353 (array_like):
+                Healpix map arrays for each simulation map.
         """
         # Load maps and convert from T_CMB to T_RJ
         free217 = hp.fitsfunc.read_map(self.planck_sim_paths['ff217'], 
@@ -543,35 +531,34 @@ class PlanckSkyModel(object):
         On small scales (below 5 degrees), the synchrotron spectral index is 
         generated from a random Gaussian distribution.
         
-        Parameters
-        ----------
-        redshift : float, optional
-            Redshift to evaluate the model at. Default: None (uses box redshift).
+        Parameters:
+            redshift (float, optional):
+                Redshift to evaluate the model at. Default: None (uses box redshift).
+            
+            rotation (tuple, optional):
+                Rotation of the field from Galactic coordinates, used by healpy 
+                ``gnomview`` when projecting the field.
+            
+            ref_freq (float, optional):
+                Reference frequency to evaluate the amplitudes at, in MHz.
+            
+            free_idx (float, optional):
+                If set, replace the default free-free index with this value. 
+            
+            seed_syncidx (int, optional):
+                Random seed to use when generating the small-scale spectral index 
+                fluctuations.
         
-        rotation : tuple, optional
-            Rotation of the field from Galactic coordinates, used by healpy 
-            ``gnomview`` when projecting the field. Default: (0., -62., 0.)
-        
-        ref_freq : float, optional
-            Reference frequency to evaluate the amplitudes at, in MHz. 
-            Default: 1000. [MHz].
-        
-        free_idx : float, optional
-            If set, replace the default free-free index with this value. 
-            Default: None.
-        
-        seed_syncidx : int, optional
-            Random seed to use when generating the small-scale spectral index 
-            fluctuations. Default: None.
-        
-        Returns
-        -------
-        sync_amp, free_amp : array_like
-            Synchrotron and free-free amplitude maps, evaluated at the 
-            reference frequency.
-        
-        sync_idx : array_like
-            Synchrotron spectral index map.
+        Returns:
+            sync_amp, free_amp, sync_idx (array_like): Synchrotron and free-free 
+                amplitudes and synchrotron spectral index.
+            
+            - ``sync_amp, free_amp (array_like)``:
+                Synchrotron and free-free amplitude maps, evaluated at the 
+                reference frequency.
+            
+            - ``sync_idx (array_like)``:
+                Synchrotron spectral index map.
         """
         # Get frequency and angular pixel coords
         ang_x, ang_y = self.box.pixel_array(redshift=redshift)
@@ -656,27 +643,24 @@ class PlanckSkyModel(object):
         spatially-varying spectral index, and free-free emission with a fixed 
         spectral index.
         
-        Parameters
-        ----------
-        redshift : float, optional
-            Redshift to evaluate the model at. Default: None (uses box redshift).
+        Parameters:
+            redshift (float, optional):
+                Redshift to evaluate the model at. Default: None (uses box redshift).
+            
+            rotation (tuple, optional):
+                Rotation of the field from Galactic coordinates, used by healpy 
+                ``gnomview`` when projecting the field.
+            
+            ref_freq (float, optional):
+                Reference frequency to evaluate the amplitudes at, in MHz. 
+            
+            seed_syncidx (int, optional):
+                Random seed to use when generating the small-scale spectral index 
+                fluctuations.
         
-        rotation : tuple, optional
-            Rotation of the field from Galactic coordinates, used by healpy 
-            ``gnomview`` when projecting the field. Default: (0., -62., 0.)
-        
-        ref_freq : float, optional
-            Reference frequency to evaluate the amplitudes at, in MHz. 
-            Default: 1000. [MHz].
-        
-        seed_syncidx : int, optional
-            Random seed to use when generating the small-scale spectral index 
-            fluctuations. Default: None.
-        
-        Returns
-        -------
-        fg_cube : array_like
-            Planck Sky Model temperature data cube (in mK).
+        Returns:
+            fg_cube (array_like):
+                Planck Sky Model temperature data cube (in mK).
         """
         # Get frequency array
         freqs = self.box.freq_array(redshift=redshift) # MHz

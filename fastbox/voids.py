@@ -11,34 +11,35 @@ def void_centroid(void_cat, void_labels, box, field=None, kind='uniform'):
     """
     Get the centroid coordinates of voids, using a choice of several methods.
     
-    Parameters
-    ----------
-    void_cat : array_like
-        Array of integer labels of void regions to calculate centroids for.
+    Parameters:
+        void_cat (array_like):
+            Array of integer labels of void regions to calculate centroids for.
+        
+        void_labels (array_like of int):
+            Cube of integer labels for each voxel in the simulation box. Voxels 
+            with the same label have been determined to belong to the same void. 
+        
+        box (CosmoBox object):
+            Object containing metadata about the simulation box.
+        
+        field (array_like, optional):
+            3D field used as weight for some kinds of centroid calculation method. 
+            This should usually be the density contrast field, delta.
+        
+        kind (str, optional):
+            What kind of centroid to calculate. Options are:
+            
+            - ``uniform``: Uniform-weighted centroid (all voxels in region included).
+            
+            - ``minimum``: Density minimum of each region. Set `field = delta`.
+            
+            - ``density``: Density-weighted centroid (overdensities are ignored). 
+                          Set `field = delta`.
     
-    void_labels : array_like of int
-        Cube of integer labels for each voxel in the simulation box. Voxels 
-        with the same label have been determined to belong to the same void. 
-    
-    box : CosmoBox object
-        Object containing metadata about the simulation box.
-    
-    field : array_like, optional
-        3D field used as weight for some kinds of centroid calculation method. 
-        This should usually be the density contrast field, delta. Default: None.
-    
-    kind : str, optional
-        What kind of centroid to calculate. Options are:
-         - 'uniform': Uniform-weighted centroid (all voxels in region included).
-         - 'minimum': Density minimum of each region. Set `field = delta`.
-         - 'density': Density-weighted centroid (overdensities are ignored). 
-                      Set `field = delta`.
-    
-    Returns
-    -------
-    centroids : array_like
-        Array of shape (Nvoids, 3), containing the position vector (in box 
-        comoving coordinates) of the centroid of each void.
+    Returns:
+        centroids (array_like):
+            Array of shape (Nvoids, 3), containing the position vector (in box 
+            comoving coordinates) of the centroid of each void.
     """
     void_labels_int = void_labels.astype(np.int)
     unique_lbls = void_cat.astype(np.int)
@@ -82,23 +83,21 @@ def void_radii(void_cat, void_labels, box):
     """
     Calculate void radii, using a simple volume metric.
     
-    Parameters
-    ----------
-    void_cat : array_like
-        Array of integer labels of void regions to calculate radii for.
+    Parameters:
+        void_cat (array_like):
+            Array of integer labels of void regions to calculate radii for.
+        
+        void_labels (array_like of int):
+            Cube of integer labels for each voxel in the simulation box. Voxels 
+            with the same label have been determined to belong to the same void. 
+        
+        box (CosmoBox object):
+            Object containing metadata about the simulation box.
     
-    void_labels : array_like of int
-        Cube of integer labels for each voxel in the simulation box. Voxels 
-        with the same label have been determined to belong to the same void. 
-    
-    box : CosmoBox object
-        Object containing metadata about the simulation box.
-    
-    Returns
-    -------
-    radii : dict
-        Dictionary of void IDs (key) and radii (value), for each void in 
-        void_cat. The radii are in Mpc (same units as ``box.x``).
+    Returns:
+        radii (dict):
+            Dictionary of void IDs (key) and radii (value), for each void in 
+            void_cat. The radii are in Mpc (same units as ``box.x``).
     """
     # Voxel volume
     dx = box.x[1] - box.x[0]
@@ -117,20 +116,18 @@ def void_radii(void_cat, void_labels, box):
 def trim_by_volume(void_labels, nmin, nmax):
     """Remove labels for voids that have too few/too many voxels.
     
-    Parameters
-    ----------
-    void_labels : array_like of int
-        Cube of integer labels for each voxel in the simulation box. Voxels 
-        with the same label have been determined to belong to the same void.
+    Parameters:
+        void_labels (array_like of int):
+            Cube of integer labels for each voxel in the simulation box. Voxels 
+            with the same label have been determined to belong to the same void.
+        
+        nmin, nmax (int):
+            Minimum and maximum number of voxels allowed per void. Voids with a 
+            number of voxels outside this range will be discarded.
     
-    nmin, nmax : int
-        Minimum and maximum number of voxels allowed per void. Voids with a 
-        number of voxels outside this range will be discarded.
-    
-    Returns
-    -------
-    void_cat : array_like
-        Array of integer labels of void regions that pass the cut.
+    Returns:
+        void_cat (array_like):
+            Array of integer labels of void regions that pass the cut.
     """
     # Unique labels
     unique, counts = np.unique(void_labels, return_counts=True)
@@ -149,33 +146,30 @@ def apply_watershed(field, markers=None, mask_threshold=0., merge_threshold=0.2,
     graph-based region merging methods, `skimage.future.graph.rag_mean_color` 
     and `cut_threshold`.
     
-    Parameters
-    ----------
-    field : array_like
-        3D field to apply the watershed algorithm to. This will be normalised 
-        to produce a density contrast, so that `f = field / mean(field) - 1`.
+    Parameters:
+        field (array_like):
+            3D field to apply the watershed algorithm to. This will be normalised 
+            to produce a density contrast, so that `f = field / mean(field) - 1`.
+        
+        markers (int, optional):
+            Number of initial seeds of regions to place before running the 
+            watershed algorithm. The seeds are placed in local minima of the field. 
+            The final number of regions will be less than this number. 
+        
+        mask_threshold (float, optional):
+            Mask (exclude) all regions with density contrast `f` above this value. 
+            This is intended to exclude higher-density regions that are not allowed 
+            to form part of a void.
+        
+        merge_threshold (float, optional):
+            Similarity threshold (in terms of mean density) to use to decide 
+            whether to merge neighbouring regions. Larger values allow less similar 
+            regions to merge.
     
-    markers : int, optional
-        Number of initial seeds of regions to place before running the 
-        watershed algorithm. The seeds are placed in local minima of the field. 
-        The final number of regions will be less than this number. 
-        Default: None.
-    
-    mask_threshold : float, optional
-        Mask (exclude) all regions with density contrast `f` above this value. 
-        This is intended to exclude higher-density regions that are not allowed 
-        to form part of a void. Default: 0.
-    
-    merge_threshold : float, optional
-        Similarity threshold (in terms of mean density) to use to decide 
-        whether to merge neighbouring regions. Larger values allow less similar 
-        regions to merge. Default: 0.2.
-    
-    Returns
-    -------
-    region_lbls : array_like
-        Array with same shape as `field` with integer label for each voxel. A 
-        value of 0 denotes a voxel that is not part of any void.
+    Returns:
+        region_lbls (array_like):
+            Array with same shape as `field` with integer label for each voxel. A 
+            value of 0 denotes a voxel that is not part of any void.
     """
     # Normalise field to get density contrast
     if np.mean(field) == 0.:
@@ -221,40 +215,39 @@ def stack_voids(void_cat, void_labels, box, field, centroid_kind='density',
     voxels, i.e. the number of values contributing to the average in each voxel 
     varies between voxels.
     
-    Parameters
-    ----------
-    void_cat : array_like
-        Array of integer labels of void regions to stack.
+    Parameters:
+        void_cat (array_like):
+            Array of integer labels of void regions to stack.
+        
+        void_labels (array_like of int):
+            Cube of integer labels for each voxel in the simulation box. Voxels 
+            with the same label have been determined to belong to the same void. 
+        
+        box (CosmoBox object):
+            Object containing metadata about the simulation box.
+        
+        field (array_like):
+            3D field to be stacked. This should usually be the density contrast 
+            field, delta.
+        
+        centroid_kind (str, optional):
+            Which type of centroid to calculate (see ``void_centroid()`` for 
+            options).
+        
+        grid_scale (float, optional):
+            Bounds of the grid that the radius-normalised voids are interpolated 
+            onto, given by [-grid_scale, +grid_scale].
+        
+        grid_pix (int, optional):
+            Number of grid pixels in each dimension.
     
-    void_labels : array_like of int
-        Cube of integer labels for each voxel in the simulation box. Voxels 
-        with the same label have been determined to belong to the same void. 
-    
-    box : CosmoBox object
-        Object containing metadata about the simulation box.
-    
-    field : array_like
-        3D field to be stacked. This should usually be the density contrast 
-        field, delta.
-    
-    centroid_kind : str, optional
-        Which type of centroid to calculate (see ``void_centroid()`` for 
-        options). Default: 'density'.
-    
-    grid_scale : float, optional
-        Bounds of the grid that the radius-normalised voids are interpolated 
-        onto, given by [-grid_scale, +grid_scale]. Default: 1.
-    
-    grid_pix : int, optional
-        Number of grid pixels in each dimension. Default: 31.
-    
-    Returns
-    -------
-    stacked_voids : array_like
-        Grid of field values, averaged over all (stacked) voids.
-    
-    failures : list
-        List of void IDs that could not be interpolated onto a grid.
+    Returns:
+        stacked_voids (array_like), failures (list): Gried of stacked field values 
+            and list of void IDs where stacking failed.
+        
+        - stacked_voids (array_like): Grid of field values, averaged over all (stacked) voids.
+        
+        - failures (list): List of void IDs that could not be interpolated onto a grid.
     """
     # Compute void centroids
     centroids = void_centroid(void_cat=void_cat, void_labels=void_labels, 

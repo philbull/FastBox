@@ -15,10 +15,9 @@ class NoiseModel(object):
         An object to manage the addition of noise on top of a realisation 
         of a density field in a box.
         
-        Parameters
-        ----------
-        box : CosmoBox
-            Object containing a simulation box.
+        Parameters:
+            box (CosmoBox):
+                Object containing a simulation box.
         """
         self.box = box
     
@@ -29,29 +28,27 @@ class NoiseModel(object):
         The instrument temperature is added to a frequency-dependent sky 
         temperature, T_sky ~ 60 K (nu / 300 MHz)^-2.5. 
         
-        Parameters
-        ----------
-        Tinst : float
-            Instrument temperature, in Kelvin. This is added to the sky 
-            temperature to form the total system temperature.
+        Parameters:
+            Tinst (float):
+                Instrument temperature, in Kelvin. This is added to the sky 
+                temperature to form the total system temperature.
+            
+            tp (float):
+                Total integration time per pointing, in hours.
+            
+            fov (float):
+                Field of view (i.e. solid angle per pointing) in deg^2.
+            
+            Ndish (int):
+                Number of dishes/receivers combined to reach effective noise level.
+            
+            redshift (float, optional):
+                Redshift to evaluate the centre of the box at. Default: Same value 
+                as `self.box.redshift`.
         
-        tp : float
-            Total integration time per pointing, in hours.
-        
-        fov : float
-            Field of view (i.e. solid angle per pointing) in deg^2.
-        
-        Ndish : int
-            Number of dishes/receivers combined to reach effective noise level.
-        
-        redshift : float, optional
-            Redshift to evaluate the centre of the box at. Default: Same value 
-            as self.box.redshift.
-        
-        Returns
-        -------
-        noise : array_like
-            Realisation of noise in datacube. Units in mK.
+        Returns:
+            noise (array_like):
+                Realisation of noise in datacube. Units in mK.
         """
         # Get frequency array and channel width (MHz)
         freqs = self.box.freq_array(redshift=redshift)

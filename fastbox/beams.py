@@ -16,10 +16,9 @@ class BeamModel(object):
         """
         An object to manage a beam model as a function of angle and frequency.
         
-        Parameters  
-        ----------
-        box : CosmoBox
-            Object containing a simulation box.
+        Parameters:
+            box (CosmoBox):
+                Object containing a simulation box.
         """
         self.box = box
     
@@ -28,10 +27,13 @@ class BeamModel(object):
         """
         Return beam values in a cube matching the shape of the box.
         
-        Returns
-        -------
-        beam : array_like
-            Beam value at each voxel in `self.box`.
+        Parameters:
+            pol (str):
+                Polarisation.
+        
+        Returns:
+            beam (array_like):
+                Beam value at each voxel in `self.box`.
         """
         return np.ones((self.box.N, self.box.N, self.box.N))
     
@@ -42,18 +44,16 @@ class BeamModel(object):
         
         The x, y, and freq arrays should have the same length.
         
-        Parameters
-        ----------
-        x, y : array_like
-            Angular position in degrees.
+        Parameters:
+            x, y (array_like):
+                Angular position in degrees.
+            
+            freq (array_like):
+                Frequency (in MHz).
         
-        freq : array_like
-            Frequency (in MHz).
-        
-        Returns
-        -------
-        beam : array_like
-            Value of the beam at the specified coordinates.
+        Returns:
+            beam (array_like):
+                Value of the beam at the specified coordinates.
         """
         assert x.shape == y.shape == freq.shape, \
             "x, y, and freq arrays should have the same shape"
@@ -65,19 +65,17 @@ class BeamModel(object):
         Perform an FFT-based convolution of a field with the beam. Each 
         frequency channel is convolved separately.
         
-        Parameters
-        ----------
-        field_x : array_like
-            Field to be convolved with the beam. Must be a 3D array; the freq. 
-            direction is assumed to be the last one.
+        Parameters:
+            field_x (array_like):
+                Field to be convolved with the beam. Must be a 3D array; the freq. 
+                direction is assumed to be the last one.
+            
+            pol (str, optional):
+                Which polarisation to return the beam for.
         
-        pol : str, optional
-            Which polarisation to return the beam for. Default: None.
-        
-        Returns
-        -------
-        field_smoothed : array_like
-            Beam-convolved field, same shape as the input field.
+        Returns:
+            field_smoothed (array_like):
+                Beam-convolved field, same shape as the input field.
         """
         # Get beam cube and normalise (so integral is unity)
         beam = self.beam_cube(pol=pol)
@@ -95,22 +93,20 @@ class BeamModel(object):
         Each frequency channel is convolved separately. This function can take 
         a long time.
         
-        Parameters
-        ----------
-        field_x : array_like
-            Field to be convolved with the beam. Must be a 3D array; the freq. 
-            direction is assumed to be the last one.
+        Parameters:
+            field_x (array_like):
+                Field to be convolved with the beam. Must be a 3D array; the freq. 
+                direction is assumed to be the last one.
+            
+            pol (str, optional):
+                Which polarisation to return the beam for.
+            
+            verbose (bool, optional):
+                Whether to print progress messages.
         
-        pol : str, optional
-            Which polarisation to return the beam for. Default: None.
-        
-        verbose : bool, optional
-            Whether to print progress messages. Default: False.
-        
-        Returns
-        -------
-        field_smoothed : array_like
-            Beam-convolved field, same shape as the input field.
+        Returns:
+            field_smoothed (array_like):
+                Beam-convolved field, same shape as the input field.
         """
         # Get beam cube and normalise (so integral is unity)
         beam = self.beam_cube(pol=pol)
@@ -147,14 +143,13 @@ class KatBeamModel(BeamModel):
         An object to manage a beam based on the KatBeam "JimBeam" model as a 
         function of angle and frequency.
         
-        Parameters
-        ----------
-        box : CosmoBox
-            Object containing a simulation box.
+        Parameters:
+            box (CosmoBox):
+                Object containing a simulation box.
         
-        model : str, optional
-            Which model to use from katbeam.JimBeam. Options are 'L' (L-band), 
-            or 'UHF' (UHF-band).
+            model (str, optional):
+                Which model to use from katbeam.JimBeam. Options are 'L' (L-band), 
+                or 'UHF' (UHF-band).
         """
         # Try to import katbeam
         try:
@@ -182,16 +177,14 @@ class KatBeamModel(BeamModel):
         """
         Return beam values in a cube matching the shape of the box.
         
-        Parameters
-        ----------
-        pol : str, optional
-            Which polarisation to return the beam for. Options are 'I', 'HH', 
-            and 'VV'. Default: 'I'.
+        Parameters:
+            pol (str, optional):
+                Which polarisation to return the beam for. Options are 'I', 'HH', 
+                and 'VV'.
             
-        Returns
-        -------
-        beam : array_like
-            Beam value at each voxel in `self.box`.
+        Returns:
+            beam (array_like):
+                Beam value at each voxel in `self.box`.
         """
         assert pol in ['I', 'HH', 'VV'], "Unknown polarisation '%s'" % pol
         
@@ -215,22 +208,20 @@ class KatBeamModel(BeamModel):
         
         The x, y, and freq arrays should have the same length.
         
-        Parameters
-        ----------
-        x, y : array_like
-            Angular position in degrees.
+        Parameters:
+            x, y (array_like):
+                Angular position in degrees.
+            
+            freq (array_like):
+                Frequency (in MHz).
+            
+            pol (str, optional):
+                Which polarisation to return the beam for. Options are 'I', 'HH', 
+                and 'VV'.
         
-        freq : array_like
-            Frequency (in MHz).
-        
-        pol : str, optional
-            Which polarisation to return the beam for. Options are 'I', 'HH', 
-            and 'VV'. Default: 'I'.
-        
-        Returns
-        -------
-        beam : array_like
-            Value of the beam at the specified coordinates.
+        Returns:
+            beam (array_like):
+                Value of the beam at the specified coordinates.
         """
         assert x.shape == y.shape == freq.shape, \
             "x, y, and freq arrays should have the same shape"
@@ -251,12 +242,11 @@ class ZernikeBeamModel(BeamModel):
         """
         An object to manage a beam based on a Zernike polynomial expansion.
         
-        Parameters
-        ----------
-        box : CosmoBox
-            Object containing a simulation box.
+        Parameters:
+            box (CosmoBox):
+                Object containing a simulation box.
         
-        coeffs : array_like
+        coeffs (array_like):
             Zernike polynomial coefficients.
         """
         self.box = box
@@ -267,10 +257,9 @@ class ZernikeBeamModel(BeamModel):
         """
         Return beam values in a cube matching the shape of the box.
         
-        Returns
-        -------
-        beam : array_like
-            Beam value at each voxel in `self.box`.
+        Returns:
+            beam (array_like):
+                Beam value at each voxel in `self.box`.
         """
         assert pol in ['I', 'HH', 'VV'], "Unknown polarisation '%s'" % pol
         
@@ -294,18 +283,16 @@ class ZernikeBeamModel(BeamModel):
         
         The x, y, and freq arrays should have the same length.
         
-        Parameters
-        ----------
-        x, y : array_like
-            Angular position in degrees.
+        Parameters:
+            x, y (array_like):
+                Angular position in degrees.
+            
+            freq (array_like):
+                Frequency (in MHz).
         
-        freq : array_like
-            Frequency (in MHz).
-        
-        Returns
-        -------
-        beam : array_like
-            Value of the beam at the specified coordinates.
+        Returns:
+            beam (array_like):
+                Value of the beam at the specified coordinates.
         """
         assert x.shape == y.shape == freq.shape, \
             "x, y, and freq arrays should have the same shape"
@@ -316,7 +303,6 @@ class ZernikeBeamModel(BeamModel):
         
         # Return beam calculated at input values
         return self.zernike(self.coeffs, xcos, ycos)
-
     
     
     def zernike(self, coeffs, x, y):
@@ -326,18 +312,16 @@ class ZernikeBeamModel(BeamModel):
         This code was adapted from:
         https://gitlab.nrao.edu/pjaganna/zcpb/-/blob/master/zernikeAperture.py
 
-        Parameters
-        ----------
-        coeffs : array_like
-            Array of real coefficients of the Zernike polynomials, from 0..66.
+        Parameters:
+            coeffs (array_like):
+                Array of real coefficients of the Zernike polynomials, from 0..66.
 
-        x, y : array_like
-            Points on the unit disc.
+            x, y (array_like):
+                Points on the unit disc.
 
-        Returns
-        -------
-        zernike : array_like
-            Values of the Zernike polynomial at the input x,y points.
+        Returns:
+            zernike (array_like):
+                Values of the Zernike polynomial at the input x,y points.
         """
         # Coefficients
         assert len(coeffs) <= 66, "Max. number of coeffs is 66."

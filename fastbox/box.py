@@ -28,36 +28,35 @@ class CosmoBox(object):
         Initialise a box containing a matter distribution with a given power 
         spectrum.
         
-        Parameters
-        ----------
-        cosmo : CCL.Cosmology object or dict
-            Cosmology object. If passed as a dictionary, this will be used to 
-            create a new CCL Cosmology object.
+        Parameters:
+            cosmo (CCL.Cosmology object or dict):
+                Cosmology object. If passed as a dictionary, this will be used to 
+                create a new CCL Cosmology object.
             
-        box_scale : float or tuple, optional
-            The side length (in Mpc) of the cubic box. If passed as a tuple, 
-            this will specify the scales in the x, y, and z Cartesian 
-            directions separately. Default: 1e3 (Mpc).
+            box_scale (float or tuple, optional):
+                The side length (in Mpc) of the cubic box. If passed as a tuple, 
+                this will specify the scales in the x, y, and z Cartesian 
+                directions separately.
+            
+            nsamp (int, optional):
+                The number of grid points per dimension.
+            
+            redshift (float, optional):
+                The redshift to place the box at. This affects the redshift at 
+                which the power spectrum is evaluated when generating the fields.
+            
+            line_freq (float, optional):
+                Frequency of the emission line used as the redshift reference, in 
+                MHz.
+            
+            realise_now (bool, optional):
+                If True, generate realisations of the density, velocity, and 
+                potential immediately on initialisation.
         
-        nsamp : int, optional
-            The number of grid points per dimension. Default: 32.
-        
-        redshift : float, optional
-            The redshift to place the box at. This affects the redshift at 
-            which the power spectrum is evaluated when generating the fields. 
-            Default: 0.
-        
-        line_freq : float, optional
-            Frequency of the emission line used as the redshift reference, in 
-            MHz. Default: 1420.4 MHz (21cm line)
-        
-        realise_now : bool, optional
-            If True, generate realisations of the density, velocity, and 
-            potential immediately on initialisation. Default: True. 
-        
-        NOTE: The `self.delta_k` field is not in proper cosmological units; to 
-        get the power spectrum in the right units, a factor of `self.boxfactor` 
-        is needed for example.
+        Note:
+            The `self.delta_k` field is not in proper cosmological units; to 
+            get the power spectrum in the right units, a factor of `self.boxfactor` 
+            is needed for example.
         """
         if isinstance(cosmo, dict):
             cosmo = ccl.Cosmology(**cosmo)
@@ -111,7 +110,7 @@ class CosmoBox(object):
     def set_fft_sample_spacing(self):
         """
         Calculate the sample spacing in Fourier space, given some symmetric 3D 
-        box in real space, with 1D grid point coordinates 'x'.
+        box in real space, with 1D grid point coordinates `x`.
         """
         # These are related to comoving k by factor of 2 pi / L
         self.Kx = np.zeros((self.N,self.N,self.N))
@@ -133,27 +132,25 @@ class CosmoBox(object):
         Create realisation of the matter power spectrum by randomly sampling 
         from Gaussian distributions of variance P(k) for each k mode.
         
-        Parameters
-        ----------
-        linear : bool, optional
-            If True, use the linear matter power spectrum to do the Gaussian 
-            random realisation instead of the non-linear power spectrum set in 
-            `self.cosmo`. Default: False.
+        Parameters:
+            linear (bool, optional):
+                If True, use the linear matter power spectrum to do the Gaussian 
+                random realisation instead of the non-linear power spectrum set in 
+                `self.cosmo`.
+            
+            redshift (float, optional):
+                If specified, use this redshift to calculate the matter power 
+                spectrum for the Gaussian random realisation. Otherwise, the value 
+                of `self.redshift` is used. Default: None.
+            
+            inplace (bool, optional):
+                If True, store the resulting density field and its Fourier transform 
+                into the `self.delta_x` and `self.delta_k` variables as well as 
+                returning `delta_x`.
         
-        redshift : float, optional
-            If specified, use this redshift to calculate the matter power 
-            spectrum for the Gaussian random realisation. Otherwise, the value 
-            of `self.redshift` is used. Default: None.
-        
-        inplace : bool, optional
-            If True, store the resulting density field and its Fourier transform 
-            into the `self.delta_x` and `self.delta_k` variables as well as 
-            returning `delta_x`. Default: True.
-        
-        Returns
-        -------
-        delta_x : array_like
-            3D array of delta_x values.
+        Returns:
+            delta_x (array_like):
+                3D array of delta_x values.
         """
         # Get redshift
         if redshift is None:
@@ -209,33 +206,31 @@ class CosmoBox(object):
         simply do ifftn(velocity_k[i]), where i=0..2 for the x,y,z Cartesian 
         directions.
         
-        Parameters
-        ----------
-        delta_x : array_like, optional.
-            Density fluctuation field. If this and `delta_k` are None, will use 
-            `self.delta_k` as the field. Default: None.
+        Parameters:
+            delta_x (array_like, optional):
+                Density fluctuation field. If this and `delta_k` are None, will use 
+                `self.delta_k` as the field. Default: None.
+            
+            delta_k (array_like, optional):
+                Fourier-space density fluctuation field. If this and `delta_x` are 
+                None, will use `self.delta_k` as the field. Default: None.
+            
+            redshift (float, optional):
+                If specified, use this redshift to calculate the matter power 
+                spectrum for the Gaussian random realisation. Otherwise, the value 
+                of `self.redshift` is used. Default: None.
+            
+            inplace (bool, optional):
+                If True, store the Fourier transform, `velocity_k`, of the 
+                resulting velocity field and its Fourier transform 
+                into the `self.velocity_k` variable. Default: True.
         
-        delta_k : array_like, optional.
-            Fourier-space density fluctuation field. If this and `delta_x` are 
-            None, will use `self.delta_k` as the field. Default: None.
-        
-        redshift : float, optional
-            If specified, use this redshift to calculate the matter power 
-            spectrum for the Gaussian random realisation. Otherwise, the value 
-            of `self.redshift` is used. Default: None.
-        
-        inplace : bool, optional
-            If True, store the Fourier transform, `velocity_k`, of the 
-            resulting velocity field and its Fourier transform 
-            into the `self.velocity_k` variable. Default: True.
-        
-        Returns
-        -------
-        velocity_k : tuple of array_like
-            3-tuple of the x,y,z velocity field components in Fourier space, 
-            v_x(k), v_y(k), v_z(k). Apply ifftn() directly to any of the 
-            components to get the real-space velocity component with the 
-            correct normalisation.
+        Returns:
+            velocity_k (tuple of array_like):
+                3-tuple of the x,y,z velocity field components in Fourier space, 
+                v_x(k), v_y(k), v_z(k). Apply ifftn() directly to any of the 
+                components to get the real-space velocity component with the 
+                correct normalisation.
         """
         # Get redshift
         if redshift is None:
@@ -305,25 +300,28 @@ class CosmoBox(object):
         The DFT prefactor has not been applied; to get the real-space potential, 
         simply do ifftn(potential_k).
         
-        Parameters
-        ----------
-        delta_x : array_like, optional.
-            Density fluctuation field. If this and `delta_k` are None, will use 
-            `self.delta_k` as the field. Default: None.
+        Parameters:
+            delta_x (array_like, optional):
+                Density fluctuation field. If this and `delta_k` are None, will use 
+                `self.delta_k` as the field. Default: None.
+            
+            delta_k (array_like, optional):
+                Fourier-space density fluctuation field. If this and `delta_x` are 
+                None, will use `self.delta_k` as the field. Default: None.
+            
+            redshift (float, optional):
+                If specified, use this redshift to calculate the matter power 
+                spectrum for the Gaussian random realisation. Otherwise, the value 
+                of `self.redshift` is used. Default: None.
+            
+            inplace (bool, optional):
+                If True, store the Fourier transform, `velocity_k`, of the 
+                resulting velocity field and its Fourier transform 
+                into the `self.velocity_k` variable. Default: True.
         
-        delta_k : array_like, optional.
-            Fourier-space density fluctuation field. If this and `delta_x` are 
-            None, will use `self.delta_k` as the field. Default: None.
-        
-        redshift : float, optional
-            If specified, use this redshift to calculate the matter power 
-            spectrum for the Gaussian random realisation. Otherwise, the value 
-            of `self.redshift` is used. Default: None.
-        
-        inplace : bool, optional
-            If True, store the Fourier transform, `velocity_k`, of the 
-            resulting velocity field and its Fourier transform 
-            into the `self.velocity_k` variable. Default: True.
+        Returns:
+            phi_k (array_like):
+                Potential field, in Fourier space.
         """
         # Get redshift
         if redshift is None:
@@ -359,19 +357,17 @@ class CosmoBox(object):
         """
         Apply a Fourier-space transfer function and transform back to real space.
         
-        Parameters
-        ----------
-        field_k : ndarray
-            Field in Fourier space (3D array), with Fourier modes self.kx,ky,kz.
-            
-        transfer_fn : callable
-            Function that modulates the Fourier-space field. Must have 
-            call signature `transfer_fn(k_perp, k_par)`.
+        Parameters:
+            field_k (ndarray):
+                Field in Fourier space (3D array), with Fourier modes self.kx,ky,kz.
+                
+            transfer_fn (callable):
+                Function that modulates the Fourier-space field. Must have 
+                call signature `transfer_fn(k_perp, k_par)`.
         
-        Returns
-        -------
-        field_x : ndarray
-            Real-space field that has had the transfer function applied.
+        Returns:
+            field_x (ndarray):
+                Real-space field that has had the transfer function applied.
         """
         # Get 2D Fourier modes
         #fac = (2.*np.pi/self.L)
@@ -391,21 +387,20 @@ class CosmoBox(object):
         Remap the real-space density field to redshift-space using the line-of-
         sight velocity field.
         
-        Parameters
-        ----------
-        delta_x : array_like, optional
-            Real-space density field.
-        
-        velocity_z : array_like, optional
-            Velocity in the z (line-of-sight) direction (km/s).
-        
-        sigma_nl : float, optional
-            Optionally, add random small-scale incoherent velocities along the 
-            LOS (uncorrelated Gaussian; km/s).
-        
-        method : str, optional
-            Interpolation method to use when performing remapping, using the 
-            `scipy.interpolate.griddata` function. Default: 'linear'.
+        Parameters:
+            delta_x (array_like, optional):
+                Real-space density field.
+            
+            velocity_z (array_like, optional):
+                Velocity in the z (line-of-sight) direction (km/s).
+            
+            sigma_nl (float, optional):
+                Optionally, add random small-scale incoherent velocities along the 
+                LOS (uncorrelated Gaussian; km/s).
+            
+            method (str, optional):
+                Interpolation method to use when performing remapping, using the 
+                `scipy.interpolate.griddata` function. Default: 'linear'.
         """
         # Expansion rate (km/s/Mpc)
         Hz = 100.*self.cosmo['h'] * ccl.h_over_h0(self.cosmo, self.scale_factor)
@@ -449,16 +444,14 @@ class CosmoBox(object):
         arXiv:1706.09195; also c.f. Eq. 7 of Alonso et al., arXiv:1405.1751, 
         which differs by a factor of 1/2).
         
-        Parameters
-        ----------
-        delta_x : array_like
-            Density field (shoudl be Gaussian, generated using a linear matter 
-            power spectrum).
+        Parameters:
+            delta_x (array_like):
+                Density field (shoudl be Gaussian, generated using a linear matter 
+                power spectrum).
         
-        Returns
-        -------
-        delta_ln : array_like
-            Log-normal transform of input density field.
+        Returns:
+            delta_ln (array_like):
+                Log-normal transform of input density field.
         """
         # Use similar normalisation strategy to nbodykit lognormal_transform()
         delta_ln = np.exp(delta_x)
@@ -477,34 +470,31 @@ class CosmoBox(object):
         
         This type of density realisation code assumes 
         
-        Parameters
-        ----------
-        redshift : float, optional
-            If specified, use this redshift as the final redshift of the COLA 
-            evolution. Otherwise, `self.redshift` is used. Default: None.
+        Parameters:
+            redshift (float, optional):
+                If specified, use this redshift as the final redshift of the COLA 
+                evolution. Otherwise, `self.redshift` is used.
+            
+            redshift_init (float, optional):
+                The initial redshift to evolve the box from using COLA.
+            
+            keep_velocities (bool, optional):
+                If True, deposit the velocities output by COLA onto a grid and use 
+                those as the velocity fields. Otherwise, velocity data are not 
+                stored.
+            
+            seed (int, optional):
+                Random seed to use when generating initial conditions. If None, a 
+                random integer will be used as the random seed instead. 
+            
+            inplace (bool, optional):
+                If True, store the resulting density field and its Fourier transform 
+                into the `self.delta_x` and `self.delta_k` variables as well as 
+                returning `delta_x`.
         
-        redshift_init : float, optional
-            The initial redshift to evolve the box from using COLA. Default: 15.
-        
-        keep_velocities : bool, optional
-            If True, deposit the velocities output by COLA onto a grid and use 
-            those as the velocity fields. Otherwise, velocity data are not 
-            stored. Default: True.
-        
-        seed : int, optional
-            Random seed to use when generating initial conditions. If None, a 
-            random integer will be used as the random seed instead. 
-            Default: None.
-        
-        inplace : bool, optional
-            If True, store the resulting density field and its Fourier transform 
-            into the `self.delta_x` and `self.delta_k` variables as well as 
-            returning `delta_x`. Default: True.
-        
-        Returns
-        -------
-        delta_x : array_like
-            3D array of delta_x values.
+        Returns:
+            delta_x (array_like):
+                3D array of delta_x values.
         """
         import pycola3
         assert self.Lx == self.Ly == self.Lz, \
@@ -604,8 +594,19 @@ class CosmoBox(object):
     
     def window(self, k, R):
         """
-        Fourier transform of tophat window function, used to calculate 
+        Fourier transform of tophat window function *squared*, used to calculate 
         sigmaR etc. See "Cosmology", S. Weinberg, Eq.8.1.46.
+        
+        Parameters:
+            k (array_like):
+                Wavenumber, in Mpc^-1.
+            
+            R (array_like): 
+                Top-hat radius, in Mpc.
+        
+        Returns:
+            W (array_like):
+                Window function squared.
         """
         x = k*R
         f = (3. / x**3.) * ( np.sin(x) - x*np.cos(x) )
@@ -615,6 +616,17 @@ class CosmoBox(object):
         """
         Fourier transform of tophat window function, used to calculate 
         sigmaR etc. See "Cosmology", S. Weinberg, Eq.8.1.46.
+        
+        Parameters:
+            k (array_like):
+                Wavenumber, in Mpc^-1.
+            
+            R (array_like): 
+                Top-hat radius, in Mpc.
+        
+        Returns:
+            W (array_like):
+                Window function.
         """
         x = k*R
         f = (3. / x**3.) * ( np.sin(x) - x*np.cos(x) )
@@ -624,6 +636,17 @@ class CosmoBox(object):
         """
         Smooth a given (Fourier-space) field using a tophat filter with scale 
         R h^-1 Mpc, and then return real-space copy of smoothed field.
+        
+        Parameters:
+            field_k (array_like):
+                Fourier-space field to be smoothed (complex-valued).
+            
+            R (array_like): 
+                Top-hat radius, in Mpc/h (note the units!).
+        
+        Returns:
+            field_x (array_like):
+                Smoothed real-space field.
         """
         dk = field_k #np.reshape(field_k, np.shape(self.k))
         dk = dk * self.window1(self.k, R/self.cosmo['h'])
@@ -635,6 +658,14 @@ class CosmoBox(object):
         """
         Get variance of matter perturbations, smoothed with a tophat filter 
         of radius R h^-1 Mpc.
+        
+        Parameters:
+            R (array_like): 
+                Top-hat radius, in Mpc/h (note the units!).
+        
+        Returns:
+            sigmaR (array_like):
+                RMS of the smoothed field.
         """
         # Need binned power spectrum, with k flat, monotonic for integration.
         k, pk, stddev = self.binned_power_spectrum()
@@ -655,6 +686,10 @@ class CosmoBox(object):
         """
         Get variance of matter perturbations on smoothing scale 
         of 8 h^-1 Mpc.
+        
+        Returns:
+            sigma8 (array_like):
+                RMS of the smoothed field for R = 8 Mpc/h.
         """
         return self.sigmaR(8.0)
     
@@ -662,34 +697,35 @@ class CosmoBox(object):
         """
         Return a binned power spectrum, calculated from the realisation.
         
-        Parameters
-        ----------
-        delta_x : array_like, optional.
-            Density fluctuation field. If this and `delta_k` are None, will use 
-            `self.delta_k` as the field. Default: None.
+        Parameters:
+            delta_x (array_like, optional):
+                Density fluctuation field. If this and `delta_k` are None, will use 
+                `self.delta_k` as the field.
+            
+            delta_k (array_like, optional):
+                Fourier-space density fluctuation field. If this and `delta_x` are 
+                None, will use `self.delta_k` as the field.
+            
+            nbins (int, optional):
+                Number of k bins to use, spanning [self.kmin, self.kmax]. Will be 
+                ignored if `kbins` is set.
+            
+            kbins (array_like, optional):
+                If specified, use this array as the k bin edges.
         
-        delta_k : array_like, optional.
-            Fourier-space density fluctuation field. If this and `delta_x` are 
-            None, will use `self.delta_k` as the field. Default: None.
-        
-        nbins : int, optional
-            Number of k bins to use, spanning [self.kmin, self.kmax]. Will be 
-            ignored if `kbins` is set. Default: 20.
-        
-        kbins : array_like, optional
-            If specified, use this array as the k bin edges. Default: None.
-        
-        Returns
-        -------
-        kc : array_like
-            Centroids of k bins.
-        
-        pk : array_like
-            Power spectrum values (with correct DFT/volume normalisation).
-        
-        sigma_pk : array_like
-            Estimate of the empirical error ok pk in each bin (calculated as 
-            sigma_pk = stddev(pk) / sqrt(N_pk) in each bin).
+        Returns:
+            kc, pk, sigma_pk (array_like):
+                Measured 1D power spectrum and statistical error bars at 
+                particular wavenumbers.
+            
+                - ``kc (array_like)``: Centroids of k bins.
+                
+                - ``pk (array_like)``: Power spectrum values (with correct 
+                  DFT/volume normalisation).
+            
+                - ``sigma_pk (array_like)``: Estimate of the empirical error on 
+                  ``pk`` in each bin (calculated as 
+                  ``sigma_pk = stddev(pk) / sqrt(N_pk)`` in each bin).
         """
         # Check inputs
         if delta_x is not None and delta_k is not None:
@@ -733,8 +769,13 @@ class CosmoBox(object):
     
     def theoretical_power_spectrum(self):
         """
-        Calculate the theoretical power spectrum for the given cosmological 
-        parameters, using CCL. Does not depend on the realisation.
+        Calculate the theoretical nonlinear power spectrum for the given 
+        cosmological parameters, using CCL. Does not depend on the realisation.
+        
+        Returns:
+            k, pk (array_like):
+                Wavenumbers, from 10^-3.5 to 10^1, in Mpc^-1, and the 
+                theoretical nonlinear power spectrum, in (Mpc)^3.
         """
         k = np.logspace(-3.5, 1., int(1e3))
         pk = ccl.nonlin_matter_power(self.cosmo, k=k, a=self.scale_factor)
@@ -753,11 +794,15 @@ class CosmoBox(object):
         box, which is only a good approximation in the distant observer 
         approximation.
         
-        Parameters
-        ----------
-        redshift : float, optional
-            Redshift to evaluate the centre of the box at. Default: Same value 
-            as self.redshift.
+        Parameters:
+            redshift (float, optional):
+                Redshift to evaluate the centre of the box at. Default: Same value 
+                as ``self.redshift``.
+        
+        Returns:
+            freqs (array_like):
+                Frequencies, in MHz. Frequency decreases as z coordinate 
+                increases.
         """
         # Check redshift
         if redshift is None:
@@ -787,17 +832,15 @@ class CosmoBox(object):
         """
         Return angular pixel coordinate array in degrees.
         
-        Parameters
-        ----------
-        redshift : float, optional
-            Redshift to evaluate the centre of the box at. Default: Same value 
-            as self.redshift.
+        Parameters:
+            redshift (float, optional):
+                Redshift to evaluate the centre of the box at. Default: Same value 
+                as ``self.redshift``.
         
-        Returns
-        -------
-        pix_x, pix_y : array_like
-            Coordinates of pixel centres in the x and y directions, in degrees. 
-            The origin is the centre of the box.
+        Returns:
+            pix_x, pix_y (array_like):
+                Coordinates of pixel centres in the x and y directions, in degrees. 
+                The origin is the centre of the box.
         """
         # Check redshift
         if redshift is None:
@@ -835,7 +878,7 @@ class CosmoBox(object):
         
         This function calculates sigma8 from the realised box, and compares 
         this with the theoretical calculation for sigma8 over a large 
-           k-window, and over a k-window of the same size as for the box.
+        k-window, and over a k-window of the same size as for the box.
         """
         
         # Calc. sigma8 from the realisation
@@ -891,14 +934,12 @@ class CosmoBox(object):
         i.e. <delta_x^2> = Sum_k[P(k)]. Important consistency check for FT;
         should return unity if everything is OK.
         
-        Returns
-        -------
-        s1 : float
-            Sum (~integral) over delta_x field, ``sum(delta_x^2) * N^3``.
-        
-        s2 : float
-            Sum (~integral) over delta_k field, ``Re[sum(delta_k delta_k^*)]. 
-            Should be equal to ``s1``.
+        Returns:
+            s1, s2 (float):
+                `s1` is the sum (~integral) over the `delta_x` field, 
+                ``sum(delta_x^2) * N^3``, and `s2` is the sum (~integral) over 
+                the `delta_k` field, ``Re[sum(delta_k delta_k^*)]. 
+                Should find that ``s1 == s2``.
         """
         s1 = np.sum(self.delta_x**2.) * self.N**3.
         # ^ Factor of N^3 missing due to averaging

@@ -36,17 +36,15 @@ def mean_spectrum_filter(field):
     """
     Subtract the mean from each frequency slice.
     
-    Parameters
-    ----------
-    field : array_like
-        3D array containing the field that the filter will be applied to. 
-        NOTE: This assumes that the 3rd axis of the array is frequency.
+    Parameters:
+        field (array_like):
+            3D array containing the field that the filter will be applied to. 
+            NOTE: This assumes that the 3rd axis of the array is frequency.
     
-    Returns
-    -------
-    sub_field : array_like
-        3D array containing the field with the mean at each frequency 
-        subtracted.
+    Returns:
+        sub_field (array_like):
+            3D array containing the field with the mean at each frequency 
+            subtracted.
     """
     # Calculate freq-freq covariance matrix
     d = field.reshape((-1, field.shape[-1])) # (Nxpix * Nypix, Nfreqs)
@@ -62,24 +60,22 @@ def angular_bandpass_filter(field, kmin, kmax, d=1.):
     Apply a top-hat bandpass filter to the field in each frequency channel 
     (i.e. each 2D slice) of a datacube.
     
-    Parameters
-    ----------
-    field : array_like
-        3D array containing the field that the filter will be applied to. 
-        NOTE: This assumes that the 3rd axis of the array is frequency.
+    Parameters:
+        field (array_like):
+            3D array containing the field that the filter will be applied to. 
+            NOTE: This assumes that the 3rd axis of the array is frequency.
     
-    kmin, kmax : array_like
-        The Fourier wavenumbers defining the edges of the bandpass filter. The 
-        units are defined by ``fft.fftfreq``. The bandpass filter is applied to 
-        the magnitude of the 2D wavevector, k_perp = sqrt(k_x^2 + k_y^2).
+        kmin, kmax (array_like):
+            The Fourier wavenumbers defining the edges of the bandpass filter. The 
+            units are defined by ``fft.fftfreq``. The bandpass filter is applied to 
+            the magnitude of the 2D wavevector, k_perp = sqrt(k_x^2 + k_y^2).
     
-    d : float, optional
-        The pixel width parameter used by ``fft.fftfreq``. Default: 1.
+        d (float, optional):
+            The pixel width parameter used by ``fft.fftfreq``.
     
-    Returns
-    -------
-    filtered_field : array_like
-        3D array containing the field with the angular bandpass filter applied.
+    Returns:
+        filtered_field (array_like):
+            3D array containing the field with the angular bandpass filter applied.
     """
     # 2D FFT of field in transverse direction only
     field_k = np.fft.fftn(field, axes=[0,1])
@@ -108,36 +104,36 @@ def pca_filter(field, nmodes, fit_powerlaw=False, return_filter=False):
     See Sect. 3.2 of Alonso et al. [arXiv:1409.8667] for details.
     N.B. Proper inverse-noise weighting is not currently used.
     
-    Parameters
-    ----------
-    field : array_like
-        3D array containing the field that the filter will be applied to. 
-        NOTE: This assumes that the 3rd axis of the array is frequency.
+    Parameters:
+        field (array_like):
+            3D array containing the field that the filter will be applied to. 
+            NOTE: This assumes that the 3rd axis of the array is frequency.
+        
+        nmodes (int):
+            Number of eigenmodes to filter out (modes are ordered by SNR).
+        
+        fit_powerlaw (bool, optional):
+            If True, fit a power-law to the mean as a function of frequency. This 
+            may help prevent over-fitting of the mean relation. If False, the 
+            simple mean as a function of frequency will be used.
+        
+        return_filter (bool, optional):
+            Whether to also return the linear FG filter operator and coefficients. 
     
-    nmodes : int
-        Number of eigenmodes to filter out (modes are ordered by SNR).
-    
-    fit_powerlaw : bool, optional
-        If True, fit a power-law to the mean as a function of frequency. This 
-        may help prevent over-fitting of the mean relation. If False, the 
-        simple mean as a function of frequency will be used. Default: False.
-    
-    return_filter : bool, optional
-        Whether to also return the linear FG filter operator and coefficients. 
-        Default: False.
-    
-    Returns
-    -------
-    cleaned_field : array_like
-        Foreground-cleaned field.
-    
-    U_fg : array_like, optional
-        Foreground operator, shape (Nfreq, Nmodes). Only returned if 
-        `return_operator = True`.    
-    
-    fg_amps : array_like, optional
-        Foreground mode amplitudes per pixel, shape (Nmodes, Npix). Only 
-        returned if `return_operator = True`.
+    Returns:
+        cleaned_field (array_like), U_fg (array_like, optional), fg_amps (array_like, optional): 
+            Cleaned field, foreground filter operator, and foreground mode amplitudes.
+        
+        - ``cleaned_field (array_like)``:
+            Foreground-cleaned field.
+        
+        - ``U_fg (array_like, optional)``:
+            Foreground operator, shape (Nfreq, Nmodes). Only returned if 
+            `return_operator = True`.    
+        
+        - ``fg_amps (array_like, optional)``:
+            Foreground mode amplitudes per pixel, shape (Nmodes, Npix). Only 
+            returned if `return_operator = True`.
     """
     # Reshape field
     d = field.reshape((-1, field.shape[-1])).T # (Nfreqs, Nxpix * Nypix)
@@ -198,35 +194,34 @@ def ica_filter(field, nmodes, return_filter=False, **kwargs_ica):
     Uses `sklearn.decomposition.FastICA`. For more details, see:
     https://scikit-learn.org/stable/modules/generated/sklearn.decomposition.FastICA.html
     
-    Parameters
-    ----------
-    field : array_like
-        3D array containing the field that the filter will be applied to. 
-        NOTE: This assumes that the 3rd axis of the array is frequency.
+    Parameters:
+        field (array_like):
+            3D array containing the field that the filter will be applied to. 
+            NOTE: This assumes that the 3rd axis of the array is frequency.
+        
+        nmodes (int):
+            Number of eigenmodes to filter out.
+        
+        return_filter (bool, optional):
+            Whether to also return the linear FG filter operator and coefficients. 
+        
+        **kwargs_ica (dict, optional):
+            Keyword arguments for the `sklearn.decomposition.FastICA`
     
-    nmodes : int
-        Number of eigenmodes to filter out.
-    
-    return_filter : bool, optional
-        Whether to also return the linear FG filter operator and coefficients. 
-        Default: False.
-    
-    **kwargs_ica : dict, optional
-        Keyword arguments for the `sklearn.decomposition.FastICA`
-    
-    Returns
-    -------
-    cleaned_field : array_like
-        Foreground-cleaned field.
-    
-    transformer : sklearn.decomposition.FastICA instance, optional
-        Contains the ICA filter. Only returned if `return_operator = True`. 
-        To get the foreground model, you can do the following: 
-            ```
-            x = field - mean_field # shape (Npix, Nfreq)
-            x_trans = transformer.fit_transform(x.T) # mode amplitudes per pixel
-            x_fg = transformer.inverse_transform(x_trans).T # foreground model
-            ```
+    Returns:
+        cleaned_field (array_like), transformer (sklearn.decomposition.FastICA instance, optional): Foreground-filtered field and ICA filter object.
+        
+        - ``cleaned_field (array_like)``:
+            Foreground-cleaned field.
+        
+        - ``transformer (sklearn.decomposition.FastICA instance, optional)``:
+            Contains the ICA filter. Only returned if `return_operator = True`. 
+            To get the foreground model, you can do the following: 
+                ```
+                x = field - mean_field # shape (Npix, Nfreq)
+                x_trans = transformer.fit_transform(x.T) # mode amplitudes per pixel
+                x_fg = transformer.inverse_transform(x_trans).T # foreground model
+                ```
     """
     # Subtract mean vs. frequency
     x = mean_spectrum_filter(field).reshape((-1, field.shape[-1])).T
@@ -260,35 +255,34 @@ def kernel_pca_filter(field, nmodes, return_filter=False, **kwargs_pca):
     Uses `sklearn.decomposition.KernelPCA`. For more details, see:
     https://scikit-learn.org/stable/modules/generated/sklearn.decomposition.KernelPCA.html
 
-    Parameters
-    ----------
-    field : array_like
-        3D array containing the field that the filter will be applied to. 
-        NOTE: This assumes that the 3rd axis of the array is frequency.
+    Parameters:
+        field (array_like):
+            3D array containing the field that the filter will be applied to. 
+            NOTE: This assumes that the 3rd axis of the array is frequency.
 
-    nmodes : int
-        Number of eigenmodes to filter out (modes are ordered by SNR).
+        nmodes (int):
+            Number of eigenmodes to filter out (modes are ordered by SNR).
 
-    return_filter : bool, optional
-        Whether to also return the linear FG filter operator and coefficients. 
-        Default: False.
+        return_filter (bool, optional):
+            Whether to also return the linear FG filter operator and coefficients. 
 
-    **kwargs_pca : dict, optional
-        Keyword arguments for the `sklearn.decomposition.KernelPCA`
+        **kwargs_pca (dict, optional):
+            Keyword arguments for the `sklearn.decomposition.KernelPCA`
 
-    Returns
-    -------
-    cleaned_field : array_like
-        Foreground-cleaned field.
+    Returns:
+        cleaned_field (array_like), transformer (sklearn.decomposition.KernelPCA instance, optional): Foreground-filtered field and KPCA filter object.
+        
+        - ``cleaned_field (array_like)``:
+            Foreground-cleaned field.
 
-    transformer : sklearn.decomposition.KernelPCA instance, optional
-        Contains the PCA filter. Only returned if `return_operator = True`. 
-        To get the foreground model, you can do the following: 
-            ```
-            x = field - mean_field # shape (Npix, Nfreq)
-            x_trans = transformer.fit_transform(x.T) # mode amplitudes per pixel
-            x_fg = transformer.inverse_transform(x_trans).T # foreground model
-            ```
+        - ``transformer sklearn.decomposition.KernelPCA instance, optional)``:
+            Contains the KPCA filter. Only returned if `return_operator = True`. 
+            To get the foreground model, you can do the following: 
+                ```
+                x = field - mean_field # shape (Npix, Nfreq)
+                x_trans = transformer.fit_transform(x.T) # mode amplitudes per pixel
+                x_fg = transformer.inverse_transform(x_trans).T # foreground model
+                ```
     """
     # Subtract mean vs. frequency
     x = mean_spectrum_filter(field).reshape((-1, field.shape[-1])).T
@@ -327,35 +321,34 @@ def kernel_pca_filter_legacy(field, nmodes, return_filter=False, **kwargs_pca):
     Uses `sklearn.decomposition.KernelPCA`. For more details, see:
     https://scikit-learn.org/stable/modules/generated/sklearn.decomposition.KernelPCA.html
 
-    Parameters
-    ----------
-    field : array_like
-        3D array containing the field that the filter will be applied to. 
-        NOTE: This assumes that the 3rd axis of the array is frequency.
+    Parameters:
+        field (array_like):
+            3D array containing the field that the filter will be applied to. 
+            NOTE: This assumes that the 3rd axis of the array is frequency.
 
-    nmodes : int
-        Number of eigenmodes to filter out (modes are ordered by SNR).
+        nmodes (int):
+            Number of eigenmodes to filter out (modes are ordered by SNR).
 
-    return_filter : bool, optional
-        Whether to also return the linear FG filter operator and coefficients. 
-        Default: False.
+        return_filter (bool, optional):
+            Whether to also return the linear FG filter operator and coefficients. 
 
-    **kwargs_pca : dict, optional
-        Keyword arguments for the `sklearn.decomposition.KernelPCA`
+        **kwargs_pca (dict, optional):
+            Keyword arguments for the `sklearn.decomposition.KernelPCA`
 
-    Returns
-    -------
-    cleaned_field : array_like
-        Foreground-cleaned field.
+    Returns:
+        cleaned_field (array_like), transformer (sklearn.decomposition.KernelPCA instance, optional): Foreground-filtered field and KPCA filter object.
+        
+        - ``cleaned_field (array_like)``:
+            Foreground-cleaned field.
 
-    transformer : sklearn.decomposition.KernelPCA instance, optional
-        Contains the PCA filter. Only returned if `return_operator = True`. 
-        To get the foreground model, you can do the following: 
-            ```
-            x = field - mean_field # shape (Npix, Nfreq)
-            x_trans = transformer.fit_transform(x.T) # mode amplitudes per pixel
-            x_fg = transformer.inverse_transform(x_trans).T # foreground model
-            ```
+        - ``transformer (sklearn.decomposition.KernelPCA instance, optional)``:
+            Contains the KPCA filter. Only returned if `return_operator = True`. 
+            To get the foreground model, you can do the following: 
+                ```
+                x = field - mean_field # shape (Npix, Nfreq)
+                x_trans = transformer.fit_transform(x.T) # mode amplitudes per pixel
+                x_fg = transformer.inverse_transform(x_trans).T # foreground model
+                ```
     """
     # Subtract mean vs. frequency
     x = mean_spectrum_filter(field).reshape((-1, field.shape[-1])).T
@@ -386,35 +379,34 @@ def nmf_filter(field, nmodes, return_filter=False, **kwargs_nmf):
     Uses `sklearn.decomposition.NMF`. For more details, see:
     https://scikit-learn.org/stable/modules/generated/sklearn.decomposition.NMF.html
 
-    Parameters
-    ----------
-    field : array_like
-        3D array containing the field that the filter will be applied to. 
-        NOTE: This assumes that the 3rd axis of the array is frequency.
+    Parameters:
+        field (array_like):
+            3D array containing the field that the filter will be applied to. 
+            NOTE: This assumes that the 3rd axis of the array is frequency.
 
-    nmodes : int
-        Number of eigenmodes to filter out.
+        nmodes (int):
+            Number of eigenmodes to filter out.
 
-    return_filter : bool, optional
-        Whether to also return the linear FG filter operator and coefficients. 
-        Default: False.
+        return_filter (bool, optional):
+            Whether to also return the linear FG filter operator and coefficients. 
 
-    **kwargs_nmf : dict, optional
-        Keyword arguments for the `sklearn.decomposition.NMF`
+        **kwargs_nmf (dict, optional):
+            Keyword arguments for the `sklearn.decomposition.NMF`
 
-    Returns
-    -------
-    cleaned_field : array_like
-        Foreground-cleaned field.
+    Returns:
+        cleaned_field (array_like), transformer (sklearn.decomposition.NMF instance, optional): Foreground-filtered field and NMF filter object.
+        
+        - ``cleaned_field (array_like)``:
+            Foreground-cleaned field.
 
-    transformer : sklearn.decomposition.NMF instance, optional
-        Contains the NMF filter. Only returned if `return_operator = True`. 
-        To get the foreground model, you can do the following: 
-            ```
-            x = field - mean_field # shape (Npix, Nfreq)
-            x_trans = transformer.fit_transform(x.T) # mode amplitudes per pixel
-            x_fg = transformer.inverse_transform(x_trans).T # foreground model
-            ```
+        - ``transformer (sklearn.decomposition.NMF instance, optional)``:
+            Contains the NMF filter. Only returned if `return_operator = True`. 
+            To get the foreground model, you can do the following: 
+                ```
+                x = field - mean_field # shape (Npix, Nfreq)
+                x_trans = transformer.fit_transform(x.T) # mode amplitudes per pixel
+                x_fg = transformer.inverse_transform(x_trans).T # foreground model
+                ```
     """
     # Calculate freq-freq covariance matrix
     d = field.reshape((-1, field.shape[-1])).T # (Nfreqs, Nxpix * Nypix)
@@ -449,24 +441,22 @@ def bandpower_pca_filter(field, nbands, modes):
     N.B. The bandpass filters are contiguous top-hat filters of equal width in 
     Fourier space.
     
-    Parameters
-    ----------
-    field : array_like
-        3D array containing the field that the filter will be applied to. 
-        NOTE: This assumes that the 3rd axis of the array is frequency.
+    Parameters:
+        field (array_like):
+            3D array containing the field that the filter will be applied to. 
+            NOTE: This assumes that the 3rd axis of the array is frequency.
+            
+        nbands (int):
+            How many sub-bands to divide the band into.
         
-    nbands : int
-        How many sub-bands to divide the band into.
+        nmodes (array_like or int):
+            Number of eigenmodes to filter out in each sub-band.
+            This can be an array with a value per sub-band, 
+            or a single integer for all bands.
     
-    nmodes : array_like or int
-        Number of eigenmodes to filter out in each sub-band.
-        This can be an array with a value per sub-band, 
-        or a single integer for all bands.
-    
-    Returns
-    -------
-    cleaned_field : array_like
-        Foreground-cleaned field.
+    Returns:
+        cleaned_field (array_like):
+            Foreground-cleaned field.
     """
     # Expand modes array if needed
     if isinstance(modes, (int, np.integer)):
@@ -510,43 +500,44 @@ def gpr_filter(field, kernels=None, return_filter=False, opt_messages=True,
     See ``https://github.com/paulassoares/gpr4im`` and arXiv:2105.12665 for a 
     more sophisticated implementation.
     
-    Parameters
-    ----------
-    field : array_like
-        3D array containing the field that the filter will be applied to. 
-        NOTE: This assumes that the 3rd axis of the array is frequency.
-    
-    kernel : list of ``GPy.kern``
-        List of kernel objects. If not specified, the sum of an RBF and 
-        Exponential kernel will be used. Note that the foreground component is 
-        assumed to be the first in the list.
+    Parameters:
+        field (array_like):
+            3D array containing the field that the filter will be applied to. 
+            NOTE: This assumes that the 3rd axis of the array is frequency.
         
-        NOTE: For each kernel ``k`` passed-in manually, make sure to call the 
-        ``k.variance.constrain_bounded`` and ``k.lengthscale.constrain_bounded`` 
-        methods to set the prior ranges of the hyperparameters. By default 
-        these are set to reasonable ranges for the input signal, assuming 
-        spectrally-smooth foregrounds dominate the variance, and a non-smooth, 
-        low-variance signal.
+        kernel (list of ``GPy.kern``):
+            List of kernel objects. If not specified, the sum of an RBF and 
+            Exponential kernel will be used. Note that the foreground component is 
+            assumed to be the first in the list.
+            
+            NOTE: For each kernel ``k`` passed-in manually, make sure to call the 
+            ``k.variance.constrain_bounded`` and ``k.lengthscale.constrain_bounded`` 
+            methods to set the prior ranges of the hyperparameters. By default 
+            these are set to reasonable ranges for the input signal, assuming 
+            spectrally-smooth foregrounds dominate the variance, and a non-smooth, 
+            low-variance signal.
+            
+            NOTE: The length scales of the kernel are normalised so that the full 
+            frequency range is on the unit interval, [0, 1].
         
-        NOTE: The length scales of the kernel are normalised so that the full 
-        frequency range is on the unit interval, [0, 1].
+        return_filter (bool, optional):
+            Whether to also return the GPR filter object.
+        
+        opt_messages (bool, optional):
+            Whether to print status messages as the optimiser runs.
+        
+        opt_num_restarts (int, optional):
+            Number of optimiser restarts to allow.
     
-    return_filter : bool, optional
-        Whether to also return the GPR filter object. Default: False.
-    
-    opt_messages : bool, optional
-        Whether to print status messages as the optimiser runs. Default: True.
-    
-    opt_num_restarts : int, optional
-        Number of optimiser restarts to allow. Default: 10.
-    
-    Returns
-    -------
-    cleaned_field : array_like
-        Foreground-cleaned field.
+    Returns:
+        cleaned_field (array_like), gpr (GPy.models.GPRegression object): 
+            Foreground-cleaned field and GPR handler object.
+            
+        - ``cleaned_field (array_like)``:
+            Foreground-cleaned field.
 
-    gpr : ``GPy.models.GPRegression`` object 
-        GPy GPR handler object.
+        - ``gpr (GPy.models.GPRegression object)``:
+            GPy GPR handler object.
     """
     # Check that GPy is available
     try:
@@ -611,21 +602,15 @@ class LSQfitting(object):
         
         Uses a synchrotron-like power law model for the component to be removed.
 
-        Parameters
-        ----------
-        box : CosmoBox
-            Object containing a simulation box.
+        Parameters:
+            box (CosmoBox):
+                Object containing a simulation box.
         """
         self.box = box
     
     
     def resid_synch(self, params, freqs, data, **kwargs):
-        """Synchrotron model residuals.
-        
-        Parameters
-        ----------
-        
-        """
+        """Synchrotron model residuals."""
         freqS = kwargs['freqS']
         noise = kwargs['noise']
         betaS = params['betaS']
@@ -639,7 +624,7 @@ class LSQfitting(object):
     
     def do_loop(self, ii, bits, data, noise, freqs, bsval, syamp, ffamp, mod, 
                 bidea, freeind, queue):
-        """."""
+        """TODO"""
         nfreqs = freqs.size
         star = bits[ii]
         enl = bits[ii+1]
@@ -682,17 +667,16 @@ class LSQfitting(object):
     def run_fit(self, psm, maps, freqs, numpix, tpsmean, freeind):
         """Perform a fit to the data.
         
-        Parameters
-        ----------
-        psm : PlanckSkyModel instance
-            Instance of the PlanckSkyModel from the ``fastbox.foregrounds`` 
-            module.
-        
-        maps : array_like
-            Data cube.
-        
-        freqs : array_like
-            Frequencies.
+        Parameters:
+            psm (PlanckSkyModel instance):
+                Instance of the PlanckSkyModel from the ``fastbox.foregrounds`` 
+                module.
+            
+            maps (array_like):
+                Data cube.
+            
+            freqs (array_like):
+                Frequencies.
         """
         nfreqs = freqs.size
     

@@ -15,10 +15,9 @@ class TracerModel(object):
         An object to manage a biased tracer on top of a realisation of a 
         density field in a box.
         
-        Parameters
-        ----------
-        box : CosmoBox
-            Object containing a simulation box.
+        Parameters:
+            box (CosmoBox):
+                Object containing a simulation box.
         """
         self.box = box
     
@@ -28,18 +27,16 @@ class TracerModel(object):
         Overall signal amplitude (e.g. mean brightness temperature). This is a 
         simple constant-amplitude model.
         
-        Parameters
-        ----------
-        amp : float
-            Overall amplitude.
+        Parameters:
+            amp (float):
+                Overall amplitude.
+            
+            redshift (float):
+                Redshift to evaluate the amplitude at.
         
-        redshift : float
-            Redshift to evaluate the amplitude at.
-        
-        Returns
-        -------
-        bias : float
-            Bias at given redshift.
+        Returns:
+            bias (float):
+                Bias at given redshift.
         """
         return amp + 0.*redshift # same shape as redshift
     
@@ -48,18 +45,16 @@ class TracerModel(object):
         """
         Linear bias model, b(z) = b0 sqrt(1 + z)
         
-        Parameters
-        ----------
-        b0 : float
-            Overall bias amplitude.
+        Parameters:
+            b0 (float):
+                Overall bias amplitude.
         
-        redshift : float
+        redshift (float):
             Redshift to evaluate the bias at.
         
-        Returns
-        -------
-        bias : float
-            Bias at given redshift.
+        Returns:
+            bias (float):
+                Bias at given redshift.
         """
         return b0 * np.sqrt(1. + redshift)
 
@@ -72,16 +67,15 @@ class HITracer(TracerModel):
         An object to manage a biased tracer on top of a realisation of a 
         density field in a box.
         
-        Parameters
-        ----------
-        box : CosmoBox
-            Object containing a simulation box.
+        Parameters:
+            box (CosmoBox):
+                Object containing a simulation box.
         
-        OmegaHI0 : float, optional
-            Fractional density of HI at redshift 0. Default: 0.000486.
-            
-        bHI0 : float, optional
-            HI bias at redshift 0. Default: 0.677105.
+            OmegaHI0 (float, optional):
+                Fractional density of HI at redshift 0.
+                
+            bHI0 (float, optional):
+                HI bias at redshift 0.
         """
         # Initialise superclass
         super().__init__(box)
@@ -96,19 +90,19 @@ class HITracer(TracerModel):
         Brightness temperature Tb(z), in mK. Several different expressions for the 
         21cm line brightness temperature are available:
         
-        Parameters
-        ----------
-        redshift : float, optional
-            Central redshift to evaluate the signal amplitude at. If not 
-            specified, uses `self.box.redshift`. Default: None.
-        
-        formula : str, optional
-            Which fitting formula to use for the brightness temperature. Some 
-            of the options are a function of Omega_HI(z)
-              - 'powerlaw': Simple power-law fit to Mario's updated data 
+        Parameters:
+            redshift (float, optional):
+                Central redshift to evaluate the signal amplitude at. If not 
+                specified, uses `self.box.redshift`.
+            
+            formula (str, optional):
+                Which fitting formula to use for the brightness temperature. Some 
+                of the options are a function of Omega_HI(z)
+                
+                - ``powerlaw``: Simple power-law fit to Mario's updated data 
                 (powerlaw M_HI function with alpha=0.6) (Default)
-              - 'hall': From Hall, Bonvin, and Challinor.
-           Default: 'powerlaw'
+                
+                - ``hall``: From Hall, Bonvin, and Challinor.
         """
         if redshift is None:
             redshift = self.box.redshift
@@ -136,11 +130,10 @@ class HITracer(TracerModel):
         """
         HI bias as a function of redshift.
         
-        Parameters
-        ----------
-        redshift : float, optional
-            Central redshift to evaluate the signal amplitude at. If not 
-            specified, uses `self.box.redshift`. Default: None.
+        Parameters:
+            redshift (float, optional):
+                Central redshift to evaluate the signal amplitude at. If not 
+                specified, uses `self.box.redshift`.
         """
         if redshift is None:
             redshift = self.box.redshift
@@ -156,9 +149,10 @@ class HITracer(TracerModel):
         Fractional density of HI as a function of redshift, from a fitting 
         function.
         
-        Parameters
-        ----------
-        Default: 'powerlaw'
+        Parameters:
+            redshift (float, optional):
+                Central redshift to evaluate the signal amplitude at. If not 
+                specified, uses `self.box.redshift`.
         """
         if redshift is None:
             redshift = self.box.redshift
