@@ -242,12 +242,12 @@ def stack_voids(void_cat, void_labels, box, field, centroid_kind='density',
             Number of grid pixels in each dimension.
     
     Returns:
-        stacked_voids (array_like), failures (list): Gried of stacked field values 
+        stacked_voids (array_like), failures (list): Grid of stacked field values 
             and list of void IDs where stacking failed.
         
-        - stacked_voids (array_like): Grid of field values, averaged over all (stacked) voids.
+        - ``stacked_voids (array_like)``: Grid of field values, averaged over all (stacked) voids.
         
-        - failures (list): List of void IDs that could not be interpolated onto a grid.
+        - ``failures (list)``: List of void IDs that could not be interpolated onto a grid.
     """
     # Compute void centroids
     centroids = void_centroid(void_cat=void_cat, void_labels=void_labels, 
