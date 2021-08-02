@@ -19,10 +19,17 @@ The following optional dependencies are needed for some of the foreground modell
 * `lmfit`
 * `multiprocessing`
 
+If you would like to use COLA to generate fast, approximate N-body simulations (see the 
+[``CosmoBox.realise_density_cola()``](box.md) method), please install [https://github.com/philbull/pycola3](pycola3).
+
+In many of the examples, we also use `nbodykit` to analyse the simulations (e.g. to produce power spectra and 
+correlation functions). Note that `nbodykit` may have package dependency version clashes with `pyccl` for 
+some versions of Python, so you may need to install one of them manually (from source).
 
 ## Current features
 
 * Gaussian and log-normal density fields for any cosmology
+* COLA approximate N-body simulated density fields
 * Redshift-space transform, linear biasing etc
 * Arbitrary anisotropic filters as a function of kperp and kparallel
 * Poisson realisations of halo/galaxy samples
