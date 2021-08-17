@@ -257,7 +257,7 @@ def stack_voids(void_cat, void_labels, box, field, centroid_kind='density',
     radii = void_radii(void_cat=void_cat, void_labels=void_labels, box=box)
     
     # Define grid to interpolate onto
-    grid = np.linspace(grid_scale, grid_scale, grid_pix)
+    grid = np.linspace(-grid_scale, grid_scale, grid_pix)
     grid_x, grid_y, grid_z = np.meshgrid(grid, grid, grid)
 
     # Empty grid for summing
