@@ -767,6 +767,69 @@ class CosmoBox(object):
         # First value is garbage, so throw it away
         return np.array(cent[1:]), np.array(vals[1:]), np.array(stddev[1:])
     
+    def cylindrically_ave_power_spectrum(self, delta_x=None, nbins=20, kmin=0.005, kmax=0.11):
+        """
+        Return the 2D, cylindrically averaged power spectrum, calculated from the realisation.
+        
+        Parameters:
+            delta_x (array_like, optional):
+                Density fluctuation field.
+
+            nbins (int, optional):
+                Number of k bins to use, spanning [kmin, kmax].
+            
+            kmin, kmax (int, optional):
+                If specified, use this array as the min and max k values.
+        
+        Returns:
+            pk2d, kperp, kpara (array_like):
+                Measured 1D power spectrum and statistical error bars at 
+                particular wavenumbers.
+                
+                - ``pk2d (array_like)``: 2D array of cylindrically avergaed power.
+            
+                - ``kperp (array_like)``: Centroids of k_perpendicular bins.
+                
+                - ``kpara (array_like)``: Centroids of k_parallel bins.
+
+        """
+    
+        kx = self.k[:,0,0]
+        ky = self.k[0,:,0]
+        kz = self.k[0,0,:]
+        
+        #get 3D fourier power
+        delta_k = fft.fftn(delta_x)
+        pk3d = delta_k * np.conj(delta_k)
+        pk3d = pk3d.real / self.boxfactor
+    
+        #trim z axis according to kmin and kmax values
+        not_too_high = np.where(kz > kmin)[0]
+        not_too_low = np.where(kz < kmax)[0]
+        inds_in_k_range = np.intersect1d(not_too_high, not_too_low)
+        pk3d = pk3d[:,:, inds_in_k_range]
+    
+        pk2d = np.zeros((nbins, nbins))
+    
+        kperp = np.arange(kmin, kmax, (kmax-kmin)/nbins)
+        kpara = np.arange(kmin, kmax, (kmax-kmin)/nbins)
+    
+        for lval in range(kperp.shape[0] - 1):
+            k_count = 0
+            sum1 = np.zeros(int(nbins))
+            for ii in range(len(kx)):
+                for jj in range(len(ky)):
+                    kperp_mag = np.sqrt(kx[ii]**2 + ky[jj]**2)
+                    if kperp_mag > kperp[lval] and kperp_mag < kperp[lval+1]:
+                        k_count = k_count + 1
+                        for kk in range(nbins):
+                            sum1[kk] = sum1[kk] + pk3d[ii, jj, kk]
+                        
+            if k_count>0:
+                pk2d[lval,:] = sum1/float(k_count)
+     
+        return pk2d[::-1], kperp, kpara
+    
     def theoretical_power_spectrum(self):
         """
         Calculate the theoretical nonlinear power spectrum for the given 
