@@ -39,7 +39,7 @@ jobs:
           which pip
           pip install numpy
           pip install scipy matplotlib sklearn pytest ipython coverage \
-                      pytest-cov cython
+                      scikit-image pytest-cov cython
           pip install pyccl
           pip install nbodykit
           pip install .
