@@ -200,15 +200,15 @@ class GlobalSkyModel(object):
         self.gsm = GlobalSkyModel2016(freq_unit='MHz')
     
     
-    def construct_cube(self, lat0=0., lon0=0., redshift=None, loop=True, 
+    def construct_cube(self, rotation=(0., -62., 0.), redshift=None, loop=True, 
                        verbose=True):
         """
         Construct a foreground datacube from GDSM.
         
         Parameters:
-            lat0, lon0 (float, optional):
-                Latitude and longitude of the centre of the field in default pyGDSM 
-                coordinates (Galactic), in degrees.
+            rotation (tuple, optional):
+                Rotation of the field from Galactic coordinates, used by healpy 
+                ``gnomview`` when projecting the field.
                 
             redshift (float, optional):
                 Redshift to evaluate the centre of the box at. Default: Same value 
@@ -231,6 +231,8 @@ class GlobalSkyModel(object):
         ang_x, ang_y = self.box.pixel_array(redshift=redshift)
         delta_ang_x = np.max(ang_x) - np.min(ang_x)
         delta_ang_y = np.max(ang_y) - np.min(ang_y)
+        lon0 = rotation[0]
+        lat0 = rotation[1]
         
         # Cartesian projection of maps
         npix = self.box.N
@@ -248,7 +250,7 @@ class GlobalSkyModel(object):
                 # Get map and project to Cartesian grid
                 m = self.gsm.generate(freq)
                 nside = hp.npix2nside(m.size)
-                fgcube[:,:,i] = proj.projmap(m, vec2pix_func=partial(hp.vec2pix, nside))
+                fgcube[:,:,i] = proj.projmap(m, vec2pix_func=partial(hp.vec2pix, nside))[::-1] 
         else:
             # Fetch all maps in one go
             maps = self.gsm.generate(freqs)
@@ -258,7 +260,7 @@ class GlobalSkyModel(object):
             for i, m in enumerate(maps):
                 if verbose and i % 10 == 0:
                     print("    Channel %d / %d" % (i, len(freqs)))
-                fgcube[:,:,i] = proj.projmap(m, vec2pix_func=partial(hp.vec2pix, nside))
+                fgcube[:,:,i] = proj.projmap(m, vec2pix_func=partial(hp.vec2pix, nside))[::-1] 
         
         # Return datacube
         return fgcube
@@ -353,6 +355,8 @@ class PointSourceModel(object):
         ang_x, ang_y = self.box.pixel_array(redshift=redshift) # deg
         xside = ang_x.size
         yside = ang_y.size
+        lon0 = rotation[0]
+        lat0 = rotation[1]
         
         # Resolution parameters
         ell = np.arange(nside*3) + 1.0
@@ -404,24 +408,22 @@ class PointSourceModel(object):
         map0 = T_ps0 + poisson_low_map + clustmap + shotmap
         
         # Extract npix by npix projected map (at 1.4 GHz) by using gnomview
-        reso_arcmin = hp.nside2resol(nside, arcmin=True)
-        map0 = hp.visufunc.gnomview(map0, coord='G', rot=rotation, 
-                                    xsize=xside, ysize=yside, 
-                                    reso=reso_arcmin, flip='astro', 
-                                    return_projected_map=True)
-        plt.close()
-        map0 = map0[::-1] # reverse order
+        npix = self.box.N
+        delta_ang_x = np.max(ang_x) - np.min(ang_x)
+        delta_ang_y = np.max(ang_y) - np.min(ang_y)
+        lonra = [0.0 - 0.5*delta_ang_x, 0.0 + 0.5*delta_ang_x]
+        latra = [0.0 - 0.5*delta_ang_y, 0.0 + 0.5*delta_ang_y]
+        proj = hp.projector.CartesianProj(lonra=lonra, latra=latra, coord='G',
+                                          xsize=npix, ysize=npix)
+
+        nside = hp.get_nside(map0)  
+        map0 = proj.projmap(map0, vec2pix_func=partial(hp.vec2pix, nside))[::-1]
         
         # Generate random realisation of spectral index
-        spec_idx_map = np.random.normal(beta, scale=delta_beta**2, size=npix)
+        spec_idx_map = np.random.normal(beta, scale=delta_beta**2, size=12*nside*nside)
         
         # Use gnomview to get projected spectral index map
-        spidxs = hp.visufunc.gnomview(spec_idx_map, coord='G', rot=rotation, 
-                                      xsize=xside, ysize=yside, 
-                                      reso=reso_arcmin, flip='astro', 
-                                      return_projected_map=True)
-        plt.close()
-        spidxs = spidxs[::-1] # reverse order
+        spidxs = proj.projmap(spec_idx_map, vec2pix_func=partial(hp.vec2pix, nside))[::-1]
 
         # Scale-up maps to different frequencies
         maps = np.zeros((xside, yside, nfreq))
@@ -564,6 +566,8 @@ class PlanckSkyModel(object):
         ang_x, ang_y = self.box.pixel_array(redshift=redshift)
         xside = len(ang_x)
         yside = len(ang_y)
+        lon0 = rotation[0]
+        lat0 = rotation[1]
 
         # Read Planck simulated foreground maps
         free217, sync217, sync353 = self.read_planck_sim_maps()
@@ -595,48 +599,27 @@ class PlanckSkyModel(object):
         np.random.seed(seed_syncidx)
         sync_idx = sync_idx + hp.sphtfunc.synfast(cls, 2048)
         
-        # Map resolution parameters
-        nside = hp.get_nside(sync_idx)      
-        reso_arcmin = hp.nside2resol(nside, arcmin=True)
-        nxpix = np.int(np.ceil(54.1*60./reso_arcmin))
-        nypix = np.int(np.ceil(54.1*60./reso_arcmin))
-        
-        # Project synchrotron amplitude map from sphere to rectangular grid
-        sync_amp= hp.visufunc.gnomview(sync_amp, coord='G', rot=rotation, 
-                                       xsize=nxpix, ysize=nypix, 
-                                       reso=reso_arcmin, flip='astro', 
-                                       return_projected_map=True)
-        plt.close()
-        sync_amp = sync_amp[::-1] # reverse order
-        
-        # Resample synch. amplitudes onto grid with desired resolution
-        zoom_param = [xside, yside] / np.array(sync_amp.shape)
-        sync_amp = scipy.ndimage.zoom(sync_amp, zoom_param, order=3)
-        
-        # Project free-free amplitude map from sphere to rect. grid and resample
-        free_amp = hp.visufunc.gnomview(free_amp, coord='G', rot=rotation, 
-                                        xsize=nxpix, ysize=nypix, 
-                                        reso=reso_arcmin, flip='astro', 
-                                        return_projected_map=True)
-        plt.close()
-        free_amp = free_amp[::-1] # reverse order
-        free_amp = scipy.ndimage.zoom(free_amp, zoom_param, order=3)
-        
-        # Project synch. spectral idx map from sphere to rect. grid and resample
-        sync_idx = hp.visufunc.gnomview(sync_idx, coord='G', rot=rotation, 
-                                        xsize=nxpix, ysize=nypix, 
-                                        reso=reso_arcmin, flip='astro', 
-                                        return_projected_map=True)
-        plt.close()
-        sync_idx = sync_idx[::-1] # reverse order
-        sync_idx = scipy.ndimage.zoom(sync_idx, zoom_param, order=3)
+        # Cartesian projection of maps
+        npix = self.box.N
+        delta_ang_x = np.max(ang_x) - np.min(ang_x)
+        delta_ang_y = np.max(ang_y) - np.min(ang_y)
+        lonra = [lon0 - 0.5*delta_ang_x, lon0 + 0.5*delta_ang_x]
+        latra = [lat0 - 0.5*delta_ang_y, lat0 + 0.5*delta_ang_y]
+
+        proj = hp.projector.CartesianProj(lonra=lonra, latra=latra, coord='G',
+                                          xsize=npix, ysize=npix)
+
+        nside = hp.get_nside(sync_idx)  
+        synca = proj.projmap(sync_amp, vec2pix_func=partial(hp.vec2pix, nside))[::-1]
+        freea = proj.projmap(free_amp, vec2pix_func=partial(hp.vec2pix, nside))[::-1]
+        syncind = proj.projmap(sync_idx, vec2pix_func=partial(hp.vec2pix, nside))[::-1]
         
         # Return amplitudes in mK, and synch. spectral index map
-        return sync_amp*1e3, free_amp*1e3, sync_idx
+        return synca*1e3, freea*1e3, syncind
     
     
     def construct_cube(self, redshift=None, rotation=(0.,-62.,0.), 
-                       ref_freq=1000., seed_syncidx=None):
+                       ref_freq=1000., free_idx=None, seed_syncidx=None):
         """Make Planck Sky Model (synchrotron + free-free) data cube for a box.
         
         Uses the PSM simulations, with power-law synchrotron emission with a 
@@ -670,7 +653,8 @@ class PlanckSkyModel(object):
         sync_amp, free_amp, sync_idx \
                 = self.synch_freefree_maps(redshift=redshift, 
                                            rotation=rotation, 
-                                           ref_freq=ref_freq, 
+                                           ref_freq=ref_freq,
+                                           free_idx=None,
                                            seed_syncidx=seed_syncidx)
         
         # Construct component datacubes and return

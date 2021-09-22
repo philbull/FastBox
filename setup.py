@@ -20,6 +20,7 @@ setup_args = {
         'scipy>=1.5',
         'matplotlib>=2.2',
         'sklearn',
+        'scikit-image',
         'pyccl'
     ],
     'extras_require': {'fgextras': ['healpy', 'lmfit', 'multiprocessing', 'GPy']},
