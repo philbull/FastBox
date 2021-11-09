@@ -3,6 +3,33 @@ import numpy as np
 from scipy.sparse.linalg import cg as conjgrad
 
 
+def simple_signal_cov(freqs, amplitude, width):
+    """
+    Simple signal covariance model, using a Gaussian correlation function with 
+    some width (correlation length).
+    
+    NOTE: A small ridge adjustment is added (1e-10 * I).
+    
+    Parameters:
+        freqs (array_like):
+            1D array of frequencies, in frequency units.
+        
+        amplitude (float):
+            Amplitude of the covariance, in the units of the data (squared).
+        
+        width (float):
+            Correlation length of the Gaussian, in frequency units.
+    
+    Returns:
+        cov (array_like):
+            Signal covariance model.
+    """
+    nu, nup = np.meshgrid(freqs, freqs)
+    cov = amplitude * np.exp(-0.5 * (nu - nup)**2. / width**2.) \
+        + 1e-10 * np.eye(s) # ridge adjustment
+    return cov
+
+
 def gaussian_cr_1d(d, w, S, N, realisations=1, add_noise=True, precondition=True):
     """
     Returns Gaussian constrained realizations for a flagged 1D data vector with 
@@ -62,7 +89,7 @@ def gaussian_cr_1d(d, w, S, N, realisations=1, add_noise=True, precondition=True
             Array of solution, of shape (realisations, Npix, Nfreq).
     """
     # Check shape of inputs
-    assert len(d.shape) == len(w.shape) == 2, 
+    assert len(d.shape) == len(w.shape) == 2, \
         "d and w must have shape (Npix, Nfreq)"
     Npix, Nfreq = d.shape
     assert S.shape == (Nfreq, Nfreq), "S must have shape (Nfreq, Nfreq)"
