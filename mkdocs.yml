@@ -38,6 +38,7 @@ nav:
   - Code Reference:
       - Box: box.md
       - Beams: beams.md
+      - Constrained realisations: cr.md
       - Filters: filters.md
       - Foregrounds: foregrounds.md
       - Halos: halos.md
