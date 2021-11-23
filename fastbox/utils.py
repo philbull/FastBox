@@ -62,7 +62,7 @@ def comoving_dimensions_from_survey(cosmo, angular_extent, freq_range=None,
     # Get transverse extent of box, evaluated at centroid redshift
     r_trans = ccl.comoving_angular_distance(cosmo, 1./(1.+zc))
     Lx = angular_extent[0] * np.pi/180. * r_trans
-    Lx = angular_extent[1] * np.pi/180. * r_trans
+    Ly = angular_extent[1] * np.pi/180. * r_trans
     
     return zc, (Lx, Ly, Lz)
 
