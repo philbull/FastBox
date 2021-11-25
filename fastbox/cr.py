@@ -3,7 +3,7 @@ import numpy as np
 from scipy.sparse.linalg import cg as conjgrad
 
 
-def simple_signal_cov(freqs, amplitude, width):
+def simple_signal_cov(freqs, amplitude, width, ridge_var=1e-10):
     """
     Simple signal covariance model, using a Gaussian correlation function with 
     some width (correlation length).
@@ -13,12 +13,12 @@ def simple_signal_cov(freqs, amplitude, width):
     Parameters:
         freqs (array_like):
             1D array of frequencies, in frequency units.
-        
         amplitude (float):
             Amplitude of the covariance, in the units of the data (squared).
-        
         width (float):
             Correlation length of the Gaussian, in frequency units.
+        ridge_var (float):
+            Ridge adjustment (variance to add along the diagonal).
     
     Returns:
         cov (array_like):
@@ -26,7 +26,7 @@ def simple_signal_cov(freqs, amplitude, width):
     """
     nu, nup = np.meshgrid(freqs, freqs)
     cov = amplitude * np.exp(-0.5 * (nu - nup)**2. / width**2.) \
-        + 1e-10 * np.eye(s) # ridge adjustment
+        + ridge_var * np.eye(s) # ridge adjustment
     return cov
 
 
