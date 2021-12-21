@@ -1,7 +1,7 @@
 
 import numpy as np
+from scipy.linalg import sqrtm
 from scipy.sparse.linalg import cg as conjgrad
-
 
 def simple_signal_cov(freqs, amplitude, width, ridge_var=1e-10):
     """
@@ -98,11 +98,11 @@ def gaussian_cr_1d(d, w, S, N, realisations=1, add_noise=True, precondition=True
     assert np.all(np.isreal(N)), "N must be real"
     
     # Construct matrix operators ahead of time
-    sqrtS = sp.linalg.sqrtm(S)
-    sqrtN = sp.linalg.sqrtm(N)
+    sqrtS = sqrtm(S)
+    sqrtN = sqrtm(N)
     Sinv = np.linalg.inv(S)
     Ninv = np.linalg.inv(N)
-    sqrtSinv = sp.linalg.sqrtm(Sinv)
+    sqrtSinv = sqrtm(Sinv)
     
     # Empty solution array
     solns = np.zeros((realisations, Npix, Nfreq), dtype=np.complex)
@@ -112,7 +112,7 @@ def gaussian_cr_1d(d, w, S, N, realisations=1, add_noise=True, precondition=True
         
         # Flagged inverse noise matrix
         Ninvw = w[j,:].T * Ninv * w[j,:] # noise covariance with flags applied
-        sqrtNinvw = sp.linalg.sqrtm(Ninvw)
+        sqrtNinvw = sqrtm(Ninvw)
         
         # Explicitly construct LHS operator matrix and RHS data-dep. part
         A = sqrtS @ Ninvw @ sqrtS + np.eye(Nfreq)
