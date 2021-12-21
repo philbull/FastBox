@@ -26,7 +26,7 @@ def simple_signal_cov(freqs, amplitude, width, ridge_var=1e-10):
     """
     nu, nup = np.meshgrid(freqs, freqs)
     cov = amplitude * np.exp(-0.5 * (nu - nup)**2. / width**2.) \
-        + ridge_var * np.eye(s) # ridge adjustment
+        + ridge_var * np.eye(freqs.size) # ridge adjustment
     return cov
 
 
