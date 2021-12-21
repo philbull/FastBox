@@ -30,7 +30,8 @@ def simple_signal_cov(freqs, amplitude, width, ridge_var=1e-10):
     return cov
 
 
-def gaussian_cr_1d(d, w, S, N, realisations=1, add_noise=True, precondition=True):
+def gaussian_cr_1d(d, w, S, N, realisations=1, add_noise=True, 
+                   precondition=True, cg_maxiter=1e4, verbose=True):
     """
     Returns Gaussian constrained realizations for a flagged 1D data vector with 
     signal prior covariance S and noise covariance N.
@@ -83,7 +84,13 @@ def gaussian_cr_1d(d, w, S, N, realisations=1, add_noise=True, precondition=True
             preconditioner in the conjugate gradient solver. This is calculated 
             only once at the start of the function, but may be slow if many 
             frequency channels are used.
-    
+        
+        cg_maxiter (int, optional):
+            Max. number of conjugate gradient iterations for the solver.
+        
+        verbose (bool, optional):
+            Whether to print progress messages.
+        
     Returns:
         solutions (array_like):
             Array of solution, of shape (realisations, Npix, Nfreq).
@@ -105,10 +112,12 @@ def gaussian_cr_1d(d, w, S, N, realisations=1, add_noise=True, precondition=True
     sqrtSinv = sqrtm(Sinv)
     
     # Empty solution array
-    solns = np.zeros((realisations, Npix, Nfreq), dtype=np.complex)
+    solns = np.zeros((realisations, Npix, Nfreq), dtype=np.complex128)
         
     # Loop over pixels
     for j in range(Npix):
+        if verbose:
+            print("    Pixel %d / %d" % (j+1, Npix))
         
         # Flagged inverse noise matrix
         Ninvw = w[j,:].T * Ninv * w[j,:] # noise covariance with flags applied
@@ -126,12 +135,12 @@ def gaussian_cr_1d(d, w, S, N, realisations=1, add_noise=True, precondition=True
         for i in range(realisations):    
             
             # Unit Gaussian draws for random realisations
-            omegaN = np.random.randn(Nfreq,1)
-            omegaS = np.random.randn(Nfreq,1)
+            omegaN = np.random.randn(Nfreq)
+            omegaS = np.random.randn(Nfreq)
             
             # Add random part to RHS and solve using CG
             b_cr = b + omegaN + sqrtS @ sqrtNinvw @ omegaS
-            x, info2 = conjgrad(A, b_cr, maxiter=1e5, M=Ainv)
+            x, info2 = conjgrad(A, b_cr, maxiter=cg_maxiter, M=Ainv)
             #solns[i,j,:] = x
             
             # Add noise realisation if requested; otherwise just rescale x 
