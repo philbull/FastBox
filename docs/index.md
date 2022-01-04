@@ -26,6 +26,8 @@ In many of the examples, we also use `nbodykit` to analyse the simulations (e.g.
 correlation functions). Note that `nbodykit` may have package dependency version clashes with `pyccl` for 
 some versions of Python, so you may need to install one of them manually (from source).
 
+See the `examples/` directory for some example Jupyter notebooks and scripts.
+
 ## Current features
 
 * Gaussian and log-normal density fields for any cosmology
