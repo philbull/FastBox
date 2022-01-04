@@ -21,6 +21,8 @@ plugins:
             - sys.modules["scipy.integrate"] = mock()
             - sys.modules["scipy.interpolate"] = mock()
             - sys.modules["scipy.optimize"] = mock()
+            - sys.modules["scipy.sparse"] = mock()
+            - sys.modules["scipy.sparse.linalg"] = mock()
             - sys.modules["sklearn"] = mock()
             - sys.modules["sklearn.decomposition"] = mock()
             - sys.modules["skimage"] = mock()
