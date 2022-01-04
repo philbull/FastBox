@@ -282,12 +282,14 @@ def number_density_to_area_density(cosmo, ngal, zmin, zmax, degrees=False):
         return Ngal  # No. gals per ster.
 
 
-def tracer_spectro(zmin, zmax, kind="galaxy"):
+def tracer_spectro(cosmo, zmin, zmax, kind="galaxy"):
     """
     Create a spectroscopic CCL tracer object with the right bias and selection
     function, for either a galaxy survey or an IM survey.
 
     Parameters:
+        cosmo (ccl.Cosmology):
+            CCL Cosmology object.
         zmin, zmax (float):
             Minimum and maximum redshift of the spectroscopic redshift bin.
         kind (str):
