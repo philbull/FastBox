@@ -39,7 +39,9 @@ nav:
       - Box: box.md
       - Beams: beams.md
       - Constrained realisations: cr.md
+      - Data analysis: analysis.md
       - Filters: filters.md
+      - Forecasting: forecast.md
       - Foregrounds: foregrounds.md
       - Halos: halos.md
       - Noise: noise.md
