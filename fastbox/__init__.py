@@ -1,3 +1,3 @@
 
 from .box import CosmoBox
-from . import beams, box, filters, foregrounds, halos, noise, plot, tracers, voids
+from . import analysis, beams, box, cr, filters, forecast, foregrounds, halos, noise, plot, tracers, utils, voids

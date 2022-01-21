@@ -15,11 +15,14 @@ plugins:
             - sys.modules["numpy"] = mock()
             - sys.modules["numpy.fft"] = mock()
             - sys.modules["scipy"] = mock()
+            - sys.modules["scipy.linalg"] = mock()
             - sys.modules["scipy.ndimage"] = mock()
             - sys.modules["scipy.signal"] = mock()
             - sys.modules["scipy.integrate"] = mock()
             - sys.modules["scipy.interpolate"] = mock()
             - sys.modules["scipy.optimize"] = mock()
+            - sys.modules["scipy.sparse"] = mock()
+            - sys.modules["scipy.sparse.linalg"] = mock()
             - sys.modules["sklearn"] = mock()
             - sys.modules["sklearn.decomposition"] = mock()
             - sys.modules["skimage"] = mock()
@@ -38,7 +41,10 @@ nav:
   - Code Reference:
       - Box: box.md
       - Beams: beams.md
+      - Constrained realisations: cr.md
+      - Data analysis: analysis.md
       - Filters: filters.md
+      - Forecasting: forecast.md
       - Foregrounds: foregrounds.md
       - Halos: halos.md
       - Noise: noise.md
