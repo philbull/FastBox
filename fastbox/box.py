@@ -769,7 +769,7 @@ class CosmoBox(object):
     
     def cylindrically_ave_power_spectrum(self, delta_x=None, nbins=20, kmin=0.005, kmax=0.11):
         """
-        Return the 2D, cylindrically averaged power spectrum, calculated from the realisation.
+        Return the 2D, cylindrically-averaged power spectrum, calculated from the realisation.
         
         Parameters:
             delta_x (array_like, optional):
@@ -786,24 +786,24 @@ class CosmoBox(object):
                 Measured 1D power spectrum and statistical error bars at 
                 particular wavenumbers.
                 
-                - ``pk2d (array_like)``: 2D array of cylindrically avergaed power.
+                - ``pk2d (array_like)``: 2D array of cylindrically averaged power.
             
-                - ``kperp (array_like)``: Centroids of k_perpendicular bins.
+                - ``kperp (array_like)``: Centroids of k_perp bins.
                 
-                - ``kpara (array_like)``: Centroids of k_parallel bins.
+                - ``kpara (array_like)``: Centroids of k_par bins.
 
         """
-    
-        kx = self.k[:,0,0]
-        ky = self.k[0,:,0]
-        kz = self.k[0,0,:]
+        # 3D Fourier modes in the right units
+        kx = self.Kx * (2.*np.pi/self.Lx)
+        ky = self.Ky * (2.*np.pi/self.Ly)
+        kz = self.Kz * (2.*np.pi/self.Lz)
         
-        #get 3D fourier power
+        # Get 3D fourier power
         delta_k = fft.fftn(delta_x)
         pk3d = delta_k * np.conj(delta_k)
         pk3d = pk3d.real / self.boxfactor
     
-        #trim z axis according to kmin and kmax values
+        # Trim z axis according to kmin and kmax values
         not_too_high = np.where(kz > kmin)[0]
         not_too_low = np.where(kz < kmax)[0]
         inds_in_k_range = np.intersect1d(not_too_high, not_too_low)
