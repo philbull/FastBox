@@ -41,3 +41,4 @@ See the `examples/` directory for some example Jupyter notebooks and scripts.
 * Foreground filtering via PCA, ICA, Kernel PCA, least-squares etc.
 * Integration with the DESC Core Cosmology Library (`pyccl`)
 * Power spectra, correlation functions, and their multipoles, via `nbodykit`
+* In-painting RFI gaps using Wiener filtering and LSSA
