@@ -190,7 +190,7 @@ def _model_aa(A_re, A_im, tau, freqs):
     return (A_re + 1.j*A_im) * np.exp(2.*np.pi*1.j*tau*freqs)
 
 def lssa_fit_modes(d, freqs, invcov=None, fit_amp_phase=True, tau=None, 
-                   minimize_method='L-BFGS-B'):
+                   minimize_method='L-BFGS-B', taper=False):
     r"""
     Perform a weighted LSSA fit to masked complex 1D data.
 
@@ -229,7 +229,12 @@ def lssa_fit_modes(d, freqs, invcov=None, fit_amp_phase=True, tau=None,
         tau (array_like, optional):
             Array of tau modes to fit. If `None`, will use `fftfreq()` to 
             calculate the tau values. Units: nanosec.
-
+        
+        taper (array_like, optional):
+            If specified, multiplies the data and sinusoid model by a taper 
+            function to enforce periodicity. The taper should be evaluated 
+            at the locations specified in `freqs`
+        
         minimize_method (str, optional):
             Which SciPy minimisation method to use. Default: `'L-BFGS-B'`.
     
@@ -250,7 +255,14 @@ def lssa_fit_modes(d, freqs, invcov=None, fit_amp_phase=True, tau=None,
     # Calculate tau values
     if tau is None:
         tau = np.fft.fftfreq(n=freqs.size, d=freqs[1]-freqs[0]) * 1e3 # nanosec
-
+    
+    # Taper
+    if taper is None:
+        taper = 1.
+    else:
+        assert taper.size == freqs.size, \
+            "'taper' must be evaluated at locations given in 'freqs'"
+    
     # Log-likelihood (or log-posterior) function
     def loglike(p, n):
         if fit_amp_phase:
@@ -259,7 +271,7 @@ def lssa_fit_modes(d, freqs, invcov=None, fit_amp_phase=True, tau=None,
             m = _model_aa(A_re=p[0], A_im=p[1], tau=tau[n], freqs=freqs)
         
         # Calculate residual and log-likelihood
-        x = d - m
+        x = taper * (d - m)
         logl = 0.5 * np.dot(x.conj(), np.dot(invcov, x))
         return logl.real # Result should be real
     
