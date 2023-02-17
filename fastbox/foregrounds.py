@@ -30,6 +30,10 @@ DEFAULT_PLANCK_SIM_PATHS = {
   'sync353': 'fastbox/COM_SimMap_synchrotron-ffp10-skyinbands-353_2048_R3.00_full.fits'
 }
 
+DEFAULT_SYNC_SIM_PATHS = {
+    'haslam':    'fastbox/haslam408_ds_Remazeilles2014.fits',
+    'beta':    'fastbox/cnn56arcmin_beta.npy'
+}
 
 class ForegroundModel(object):
     
@@ -679,4 +683,133 @@ class PlanckSkyModel(object):
                + free_amp[:,:,np.newaxis] \
                  * x[np.newaxis,np.newaxis,:]**self.free_idx
         return fg_map
+    
+class HighResSyncModel(object):
+
+    def __init__(self, box, sync_sim_paths=DEFAULT_SYNC_SIM_PATHS):
+        """
+        An object to manage the high resolution synchrotron foreground model.
+
+        Parameters:
+            box (CosmoBox):
+                Object containing a simulation box.
+            
+            _sim_paths (dict):
+                Dict containing paths to synchrotron simulations used by the sky model. 
+                Must have keys 'haslam', 'beta', which are paths to 
+                .fits files containing the synchrotron 408 MHz temperature 
+                map and a 56 arcmin model of synchrotron spectral index 
+                Default: ``fastbox.foregrounds.DEFAULT_SYNC_SIM_PATHS``
+        """
+
+        self.box = box
+        
+        # Store filename dict
+        for key in ['haslam', 'beta']:
+            # Check that key exists
+            assert key in sync_sim_paths.keys(), \
+                "sync_sim_paths argument is missing compulsory key '%s'" % key
+            
+            # Check that file exists
+            f = sync_sim_paths[key]
+            if not os.path.exists(f):
+                raise ValueError("Could not find file '%s' for key '%s'" % (f, key))
+        self.sync_sim_paths = sync_sim_paths
+    
+    
+    def read_sync_sim_maps(self):
+        """Read simulation maps for synchrotron emission.
+        
+        Reads the synchrotron simulation maps specified in ``self.sync_sim_paths`` 
+        as Healpix maps.
+        
+        Returns:
+            haslam, beta (array_like):
+                Healpix map arrays for temp and beta map.
+        """
+        # Load maps and convert from T_CMB to T_RJ
+        haslam = hp.fitsfunc.read_map(self.sync_sim_paths['haslam'], 
+                                       field=0, nest=False) 
+        beta = np.load(self.sync_sim_paths['beta'])
+
+        return haslam, beta
+    
+    def synch_maps(self, freq):
+        """Download synchrotron amplitude and spectral index maps.
+        
+        Parameters:
+            
+            freq (float):
+                Frequency to evaluate the amplitude at, in MHz.
+        
+        Returns:
+            All_Sky Synchrotron emission model.
+            
+            - ``sync_amp (array_like)``:
+                Synchrotron temperature maps, evaluated at the 
+                frequencies provided.
+        """
+
+        # Read maps
+        sync408, sync_idx  = self.read_sync_sim_maps()
+        
+        highresmap = (sync408 -8.9) * (freq/408.)**(sync_idx)
+        
+        # Return amplitudes in mK
+        return highresmap*1e3
+    
+    
+    def construct_cube(self, lat0=0., lon0=0., redshift=None, loop=True, 
+                       verbose=True):
+        """
+        Construct a foreground datacube from high res model
+        
+        Parameters:
+            lat0, lon0 (float, optional):
+                Latitude and longitude of the centre of the field in default pyGDSM 
+                coordinates (Galactic), in degrees.
+                
+        redshift (float, optional):
+            Redshift to evaluate the centre of the box at. Default: Same value 
+            as `self.box.redshift`.
+            
+        loop : bool, optional
+        Whether to fetch the GSM maps for all frequency channels at once 
+        (False), or to loop through them one by one (True).
+            
+        verbose : bool, optional
+        If True, print status messages.
+        """
+        
+        # Initialise empty cube
+        fgcube = np.zeros((self.box.N, self.box.N, self.box.N))
+        
+        # Get frequency array and scaling
+        freqs = self.box.freq_array(redshift=redshift)
+        ang_x, ang_y = self.box.pixel_array(redshift=redshift)
+        delta_ang_x = np.max(ang_x) - np.min(ang_x)
+        delta_ang_y = np.max(ang_y) - np.min(ang_y)
+        
+        # Cartesian projection of maps
+        npix = self.box.N
+        lonra = [lon0 - 0.5*delta_ang_x, lon0 + 0.5*delta_ang_x]
+        latra = [lat0 - 0.5*delta_ang_y, lat0 + 0.5*delta_ang_y]
+        proj = hp.projector.CartesianProj(lonra=lonra, latra=latra, coord='G',
+                                         xsize=npix, ysize=npix)
+        
+        # Fetch maps and perform projection
+        if loop:
+            for i, freq in enumerate(freqs):
+                if verbose and i % 10 == 0:
+                    print("    Channel %d / %d" % (i, len(freqs)))
+                
+                # Get map and project to Cartesian grid
+                m = self.synch_maps(freq)
+                nside = hp.npix2nside(m.size)
+                fgcube[:,:,i] = proj.projmap(m, vec2pix_func=partial(hp.vec2pix, nside))[::-1]
+        else:
+            # Fetch all maps in one go
+            print('Choose Loop=True')
+        
+        return fgcube
         
