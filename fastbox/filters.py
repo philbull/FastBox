@@ -27,9 +27,13 @@ except:
 try:
     import GPy # Gaussian Process Regression library
 except:
-    warnings.warn("Module `GPy` not found. Some functions in "    
-                  "fastbox.filters will not work", 
+    warnings.warn("Module `GPy` not found. Some functions in "
+                  "fastbox.filters will not work",
                   ImportWarning)
+try:
+    from tqdm import tqdm
+except ImportError:
+    tqdm = lambda iterable, **kwargs: iterable
 
 
 def mean_spectrum_filter(field):
@@ -182,6 +186,83 @@ def pca_filter(field, nmodes, fit_powerlaw=False, return_filter=False):
     else:
         return cleaned_field
 
+
+
+def pca_transfer_function(data_cube, cleaned_cube, mock_fn, box,
+                          nmodes, nmocks=100, nbins=50):
+    """
+    Estimate the PCA signal-loss transfer function via mock signal injection,
+    following the methodology of Cunnington et al. (2023) [arXiv:2302.07034].
+
+    The transfer function T(k) quantifies how much HI signal is suppressed by
+    PCA cleaning as a function of scale. It is defined as:
+
+        T(k) = P(X_m_clean - X_clean, X_m) / P(X_m, X_m)
+
+    where X_m is an injected mock HI realisation, X_clean is the already-cleaned
+    data cube, and X_m_clean is the cleaned cube after injecting X_m. Using the
+    cross-power in the numerator avoids a positive noise bias that would arise
+    from using the auto-power of (X_m_clean - X_clean).
+
+    Parameters:
+        data_cube (array_like):
+            Original data cube (signal + foregrounds + noise), before cleaning.
+
+        cleaned_cube (array_like):
+            PCA-cleaned version of data_cube (output of pca_filter with the
+            same nmodes).
+
+        mock_fn (callable):
+            Callable with no arguments that returns an independent mock HI
+            realisation with the same shape and units as data_cube.
+
+        box (CosmoBox):
+            Simulation box instance, used for k-space binning.
+
+        nmodes (int):
+            Number of PCA modes to remove. Must match the value used to produce
+            cleaned_cube.
+
+        nmocks (int, optional):
+            Number of independent mock realisations to average over.
+
+        nbins (int, optional):
+            Number of logarithmic k-bins. Should match the value used when
+            computing the power spectrum of cleaned_cube.
+
+    Returns:
+        T_s (array_like):
+            Individual transfer function realisations, shape (nmocks, nbins-1).
+
+        T_m (array_like):
+            Mean transfer function across all mocks, shape (nbins-1,).
+    """
+    bins = np.logspace(np.log10(box.kmin), np.log10(box.kmax), nbins)
+    bin_idxs = np.digitize(box.k.flatten(), bins)
+
+    T_s = np.zeros((nmocks, nbins - 1))
+
+    for i in tqdm(range(nmocks), desc="Transfer function mocks"):
+        mock_s = mock_fn()
+
+        # Inject mock into data and re-clean with the same number of PCA modes
+        cleaned_inj, _, _ = pca_filter(data_cube + mock_s, nmodes=nmodes,
+                                       return_filter=True)
+        X_m_clean = cleaned_inj - cleaned_cube
+
+        # Cross-power of X_m_clean and mock_s (unbiased numerator)
+        dk_Xm_clean = fft.fftn(X_m_clean)
+        dk_mock_s = fft.fftn(mock_s)
+        cross_pk = (dk_Xm_clean * np.conj(dk_mock_s)).real / box.boxfactor
+        P_num = np.array([np.mean(cross_pk.flatten()[bin_idxs == j])
+                          for j in range(bins.size)])[1:]
+
+        # Auto-power of mock_s (denominator)
+        _, P_denom, _ = box.binned_power_spectrum(delta_x=mock_s, nbins=nbins)
+
+        T_s[i] = P_num / P_denom
+
+    return T_s, np.mean(T_s, axis=0)
 
 
 def ica_filter(field, nmodes, return_filter=False, **kwargs_ica):
