@@ -172,7 +172,7 @@ FastBox has been used in [Author et al. YEAR] to validate..., and in [Author et 
 
 # AI Usage Disclosure
 
-[PLACEHOLDER: Disclose any use of generative AI tools in the writing or development of this work, or state "No AI tools were used in the preparation of this manuscript."]
+Generative AI was used to create an initial draft of this manuscript in line with JOSS requirements, which the authors thereafter verified and further iterated on. The transfer function correction function was adapted from [@Murphy2026], with generative AI being used to implement this code in a manner consistent with all other `FastBox` functions, for example the inclusion of the docstring.
 
 # Acknowledgements
 
