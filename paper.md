@@ -26,11 +26,11 @@ bibliography: paper.bib
 
 Probes of the 21cm, or neutral hydrogen (HI), emission line with intensity mapping, i.e. measuring unresolved emission at low-resolution but large cosmological volume, are poised to become one of the leading methods for tests of cosmological models on the largest scales, utilising instruemts such as MeerKAT [@Santos2016], HIRAX [@Newburgh2016], and the Square Kilometre Array [@Dewdney2009]. Foreground contamination is a common challenge amongst all such IM experiments, however, with Galactic and extragalactic foreground emission being several orders of magnitude brighter than the HI emission, necessitating the use of statistical or blind foreground separation techniques, which themselves must be calibrated on simulations.
 
-A number of simulation frameworks exist, for example `21cmFAST` [@Mesinger2011] and `SimFast21` [@Hassan2017] produce reionisation-era simulations, but many are not designed for the rapid, parametric exploration of post-EoR foregrounds and noise systematics needed when testing new analysis and calibration pipelines. `nbodykit` [@Hand2018] offers the ability to efficiently generate large scale cosmological structure, but `FastBox` aims to build on this by implementing foreground models, instrumental noise, and IM-specific observation effects. It is  lightweight, and integrates with `pyccl` [@Chisari2019] for accurate nonlinear power spectra, allowing for a fully enclosed suite capable of benchmarking pipelines.
+A number of 21cm simulation packages exist, but most are not designed for the rapid exploration of post-EoR foregrounds and noise systematics needed when testing new analysis and calibration pipelines. `nbodykit` [@Hand2018] offers the ability to efficiently generate large scale cosmological structure, but `FastBox` aims to build on this by implementing foreground models, instrumental noise, and IM-specific observation effects. It is lightweight, and integrates with `pyccl` [@Chisari2019] for accurate nonlinear power spectra, allowing for a fully enclosed suite capable of benchmarking pipelines.
 
 # State of the Field
 
-A number of frameworks have similar goals to `FastBox`, which this code intends to complement. `PowerBox` [@Murray2018] simulates two-point distribution... `Tools21cm` [@Giri2020] analyses simulated Epoch of Reionisation and Cosmic Dawn simulations... `FastBox` differs in that it...
+`FastBox` intends to serve as a complementary package to existing cosmology-focused packages. `PowerBox` [@Murray2018] simulates two-point distributions (power spectra) in arbitrary numbers of dimensions, and is primarily intended to be a generator of mock galaxy distributions. `Tools21cm` [@Giri2020] aims to instead analyse simulated 21cm signals, primarily at the EoR and Cosmic Dawn (CD). For example, using previously and externally produced simulations, mock radio observations can be produced, as well as 21cm lightcones, and 1D, 2D, and cross power spectra. Lastly, `21cmFAST` [@REF] is a simulator focused on early-Universe fields, namely the EoR and CD. `FastBox` fills a niche in that it combines post-EoR signal simulation, foreground modelling, noise, and foreground filtering into a single lightweight package, providing an end-to-end test-bench specifically for IM analysis development.
 
 # Software Design
 
@@ -168,11 +168,11 @@ corr, _  = corrfn.run()
 
 # Research Impact
 
-FastBox has been used in [Author et al. YEAR] to validate..., and in [Author et al. YEAR] to...
+FastBox has been used in [@Murphy2026] to validate the statistical separation of 21cm signal and foregrounds in an IM-like experiment using Gibbs sampling and Gaussian Constrained Realisations.
 
 # AI Usage Disclosure
 
-Generative AI was used to create an initial draft of this manuscript in line with JOSS requirements, which the authors thereafter verified and further iterated on. The transfer function correction function was adapted from [@Murphy2026], with generative AI being used to implement this code in a manner consistent with all other `FastBox` functions, for example the inclusion of the docstring.
+Generative AI was used to create an initial outline of this manuscript in keeping with JOSS requirements, which the authors thereafter verified and further iterated on. The transfer function correction code was originally written for [@Murphy2026]. Generative AI was used to adapt this code in a manner consistent with all other `FastBox` functions, for example the inclusion of the docstring.
 
 # Acknowledgements
 
