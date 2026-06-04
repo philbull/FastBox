@@ -18,6 +18,11 @@ date: 02 June 2026
 bibliography: paper.bib
 ---
 
+# Todo
+- Add a couple figures
+- Add Steve's projection things
+- Add Bruno's updates to text, if needed
+
 # Summary
 
 `FastBox` is a Python package for generating fast, physically realistic simulations of cosmological signals in three-dimensional co-moving boxes, with the primary focus of its application being 21cm intensity mapping (IM) experiments. It provides a framework for producing cosmology-dependent Gaussian and log-normal density fields, as well as modelling the effects of redshift-space distortions and linear biasing, among others. Models of instrumental systematics are incorporated, including radiometer noise and beam convolutions. Diffuse and point source foreground models are included, along with a number of foreground filtering strategies such as PCA, ICA, and transfer function correction via mock signal injection. Lastly, implementations for the calculation of power spectra and correlation functions. `FastBox` is designed as a lightweight but realistic test-bench for the development and validation of end-to-end cosmological analysis pipelines.
