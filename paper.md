@@ -168,7 +168,9 @@ corr, _  = corrfn.run()
 
 # Research Impact
 
-FastBox has been used in [@Murphy2026] to validate the statistical separation of 21cm signal and foregrounds in an IM-like experiment using Gibbs sampling and Gaussian Constrained Realisations.
+`FastBox` simulated 21cm data cubes were used in [@Irfan&Bull2021], where kernel principal component analysis was tested as an alternative to standard principal component analysis (PCA) foreground removal techniques. KPCA was found to improve recovery at intermediate-to-large cosmological scales. [@Irfan2023] generated mock 21cm cubes to test PCA foreground removal in four cases of Galactic synchrotron spectral index models, including a high-resolution model they generate via a convolutional neural network (CNN). [@Irfan2024] used `FastBox` mock signal and foreground cubes as inputs for pipelines focused on the removal of 1/f noise. 
+
+[@Engelbrecht2025] utilised mock `FastBox` signal cubes to validate their Radio Navigation Satellite System Radio Frequency Interference (RFI) model against MeerKAT data. [@Murphy2026] used mock signal and foregrounds to validate the statistical separation of 21cm signal and foregrounds in an IM-like experiment using Gibbs sampling and Gaussian Constrained Realisations.
 
 # AI Usage Disclosure
 
