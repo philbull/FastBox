@@ -88,6 +88,8 @@ delta_s = box.redshift_space_density(delta_x=delta_ln.real,
 signal_cube = tracer.signal_amplitude() * (1. + delta_s)
 ```
 
+![A single frequency slice ($z = 0.8$) of the log-normal overdensity field $\delta_{\rm ln}$ (left) and the corresponding HI brightness temperature $T_b$ (right), generated on a $128^3$ grid spanning $(2\,\mathrm{Gpc})^3$.](figures/field_slice.pdf){#fig:field_slice width=100%}
+
 ## Adding foregrounds and instrument noise
 
 Galactic synchrotron emission and extragalactic point sources are modelled as spatially correlated maps with power-law spectral energy distributions, following the parameterisation of @Santos2005:
@@ -170,6 +172,8 @@ corrfn   = FFTCorr(first=mesh, mode='1d', BoxSize=boxsize,
                    los=[0, 0, 1], dr=2., rmin=20., rmax=200.)
 corr, _  = corrfn.run()
 ```
+
+![Spherically-averaged power spectra from an end-to-end simulation at $z = 0.8$. The theoretical prediction (black) is compared against the true HI signal (blue), and the signal recovered after PCA (red) and ICA (yellow) foreground removal with $N_{\rm fg} = 3$ modes subtracted. Large-scale power loss from foreground filtering is visible at low $k$.](figures/power_spectrum.pdf){#fig:power_spectrum width=100%}
 
 # Research Impact
 
