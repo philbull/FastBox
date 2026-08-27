@@ -3,7 +3,7 @@
 import numpy as np
 import scipy.interpolate
 from skimage.segmentation import watershed
-import skimage.future.graph as graph
+import skimage.graph as graph
 import time
 
 
@@ -258,7 +258,7 @@ def stack_voids(void_cat, void_labels, box, field, centroid_kind='density',
     
     # Define grid to interpolate onto
     grid = np.linspace(-grid_scale, grid_scale, grid_pix)
-    grid_x, grid_y, grid_z = np.meshgrid(grid, grid, grid)
+    grid_x, grid_y, grid_z = np.meshgrid(grid, grid, grid, indexing='ij')
 
     # Empty grid for summing
     void_grid_list = []

@@ -82,7 +82,8 @@ def angular_bandpass_filter(field, kmin, kmax, d=1.):
     
     # Get frequencies
     kx = fft.fftfreq(field.shape[0], d=d)
-    kx, ky = np.meshgrid(kx, kx)
+    ky = fft.fftfreq(field.shape[1], d=d)
+    kx, ky = np.meshgrid(kx, ky, indexing='ij')
     k = np.sqrt(kx**2. + ky**2.)
     
     # Filter frequencies that are out of range
@@ -468,7 +469,8 @@ def bandpower_pca_filter(field, nbands, modes):
     
     # Get min/max frequencies and use to define the sub-bands
     kx = fft.fftfreq(field.shape[0], d=1.)
-    kx, ky = np.meshgrid(kx, kx)
+    ky = fft.fftfreq(field.shape[1], d=1.)
+    kx, ky = np.meshgrid(kx, ky, indexing='ij')
     k = np.sqrt(kx**2. + ky**2.)
     band_edges = np.linspace(np.min(k), np.max(k), nbands+1)
     

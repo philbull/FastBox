@@ -62,7 +62,7 @@ def interpolate_onto_grid(field, coords_orig, coords_new):
     )
 
     # Build new grid with chosen resolution
-    x3d, y3d, z3d = np.meshgrid(x_new, y_new, z_new)
+    x3d, y3d, z3d = np.meshgrid(x_new, y_new, z_new, indexing='ij')
     pts = np.array([x3d.flatten(), y3d.flatten(), z3d.flatten()])
 
     # Interpolate onto new fine grid

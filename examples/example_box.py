@@ -3,8 +3,6 @@
 import numpy as np
 import pylab as plt
 from fastbox.box import CosmoBox, default_cosmo
-from nbodykit.algorithms.fftpower import FFTPower
-from nbodykit.lab import ArrayMesh
 from numpy import fft
 import sys
 
@@ -29,7 +27,7 @@ plt.title("Density field (imag)")
 plt.colorbar()
 plt.show()
 
-sys.exit(0)
+#sys.exit(0)
 
 
 # Trim negative values
@@ -65,7 +63,7 @@ plt.colorbar()
 plt.show()
 
 
-sys.exit(0)
+#sys.exit(0)
 
 # Gaussian box with beam smoothing and foreground cut
 transfer_fn = lambda k_perp, k_par: \
@@ -103,7 +101,7 @@ plt.ylim((1e0, 1e5))
 plt.show()
 
 
-sys.exit(0)
+#sys.exit(0)
 
 
 # Log-normal box
@@ -127,7 +125,7 @@ plt.plot(th_k, th_pk, 'b-', label="Theoretical P(k)")
 #plt.errorbar(re_k, re_pk, yerr=re_stddev, fmt=".", color='r')
 plt.plot(re_k, re_pk, 'r.', label="P(k) from density field")
 plt.plot(lnre_k, lnre_pk, 'gx', label="P(k) from log-normal")
-plt.xscale('log')
+plt.xscale('log')ples
 plt.yscale('log')
 plt.legend(loc='lower left', frameon=False)
 

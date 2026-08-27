@@ -11,10 +11,10 @@ import pyccl as ccl
 import fastbox
 from fastbox.box import CosmoBox, default_cosmo
 from fastbox.foregrounds import ForegroundModel
-from nbodykit.lab import ArrayMesh
-from nbodykit.algorithms.fftcorr import FFTCorr
-from nbodykit.algorithms.fftpower import FFTPower
-import time, sys
+#from nbodykit.algorithms.fftpower import FFTPower
+#import time, sys
+from fastbox.beams import KatBeamModel
+import time
 
 #-------------------------------------------------------------------------------
 # Realise density field in redshift space
@@ -73,26 +73,31 @@ data_cube = signal_cube + fg_cube
 print("\t(2) Adding foregrounds complete (%3.3f sec)" % (time.time()-t0))
 
 #-------------------------------------------------------------------------------
+# Beam convolution
+#-------------------------------------------------------------------------------
+print("(3) Beam convolving...")
+
+freqs = box.freq_array(redshift=0.8)
+kbm = KatBeamModel(box, model='L')
+data_cube = kbm.convolve_fft(data_cube,pol='I')
+
+print("Beam convolved succesfully!")
+#-------------------------------------------------------------------------------
 # Add noise
 #-------------------------------------------------------------------------------
-print("(3) Adding noise...")
+print("(4) Adding noise...")
 t0 = time.time()
 
 # Generate homogeneous radiometer noise
 noise_model = fastbox.noise.NoiseModel(box)
 noise_cube = noise_model.realise_radiometer_noise(Tinst=18., tp=2., fov=1., 
-                                                  Ndish=64) # FIXME: Long integration time!
+                                                  Ndish=64)
 
 # Add to data cube
 data_cube += noise_cube
 
 print("\t(3) Adding noise complete (%3.3f sec)" % (time.time()-t0))
 
-#-------------------------------------------------------------------------------
-# Beam convolution
-#-------------------------------------------------------------------------------
-
-# FIXME
 
 
 #-------------------------------------------------------------------------------
@@ -109,7 +114,6 @@ cleaned_cube4, U_fg, amp_fg = fastbox.filters.pca_filter(data_cube,
 cleaned_cube8, U_fg, amp_fg = fastbox.filters.pca_filter(data_cube, 
                                                          nmodes=12, 
                                                          return_filter=True)
-#cleaned_cube = data_cube # FIXME
 
 print("\t(4) Cleaning foregrounds complete (%3.3f sec)" % (time.time()-t0))
 #-------------------------------------------------------------------------------
@@ -196,26 +200,7 @@ plt.errorbar(proc8_k, proc8_pk, yerr=proc8_stddev, color='g', marker='+')
 
 plt.xscale('log')
 plt.yscale('log')
-#plt.show()
+plt.show()
 
 #sys.exit(0)
 
-# Plot correlation functions and vanilla theoretical prediction
-plt.figure()
-plt.subplot(111)
-r = corr_true['r']
-h = box.cosmo['h']
-
-rr = np.linspace(2., 200., 300)
-xi = ccl.correlation_multipole(box.cosmo, a=box.scale_factor, l=0, s=rr, beta=0.)
-
-plt.subplot(111)
-plt.plot(rr, rr**2. * xi * tracer.signal_amplitude()**2., 'k-')
-plt.plot(r, r**2. * corr_true['corr'], 'r.', label="True field")
-plt.plot(r, r**2. * corr_proc4['corr'], 'bx', label="4 modes")
-plt.plot(r, r**2. * corr_proc4_hp['corr'], 'ys', label="4 modes (high-pass)")
-plt.plot(r, r**2. * corr_proc8['corr'], 'g+', label="4 modes")
-plt.xlabel("r", fontsize=16)
-plt.ylabel(r"$r^2 \xi(r)$", fontsize=16)
-
-plt.show()

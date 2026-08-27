@@ -19,7 +19,7 @@ setup_args = {
         'numpy>=1.18',
         'scipy>=1.5',
         'matplotlib>=2.2',
-        'sklearn',
+        'scikit-learn',
         'pyccl'
     ],
     'extras_require': {'fgextras': ['healpy', 'lmfit', 'multiprocessing', 'GPy']},
@@ -30,4 +30,3 @@ setup_args = {
 
 if __name__ == '__main__':
     setup(**setup_args)
-

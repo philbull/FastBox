@@ -27,6 +27,24 @@ The following optional dependencies are needed for some of the foreground modell
 * `multiprocessing`
 * `GPy`
 
+## INSTALLATION IN A CONDA ENVIRONMENT
+
+```bash
+conda create -n fast-env python=3.8 pyccl=2.3.0 scikit-learn scikit-image healpy lmfit -c bccp -c conda-forge -y
+
+git clone https://github.com/philbull/FastBox.git
+
+cd Fastbox
+
+python setup.py install
+```
+
+If you want to use katbeam model:
+
+```bash
+pip install git+https://github.com/ska-sa/katbeam.git
+```
+
 ## Current features
 
  - Gaussian and log-normal density fields for any cosmology

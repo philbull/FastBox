@@ -22,8 +22,8 @@ default_cosmo = dict(Omega_c=0.25, Omega_b=0.05,
 
 class CosmoBox(object):
 
-    def __init__(self, cosmo, box_scale=1e3, nsamp=32, redshift=0., 
-                 line_freq=1420.405752, realise_now=True):
+    def __init__(self, cosmo, box_scale=1e3, nsamp=(32, 32, 32), redshift=0., 
+                 line_freq=1420.405752, realise_now=True, frequency_array=None):
         """
         Initialise a box containing a matter distribution with a given power 
         spectrum.
@@ -38,8 +38,8 @@ class CosmoBox(object):
                 this will specify the scales in the x, y, and z Cartesian 
                 directions separately.
             
-            nsamp (int, optional):
-                The number of grid points per dimension.
+            nsamp (int or tuple, optional):
+                The number of grid points per dimension. If an int, assumes cubic grid. If a tuple (Nx, Ny, Nz), uses anisotropic grid.
             
             redshift (float, optional):
                 The redshift to place the box at. This affects the redshift at 
@@ -52,6 +52,12 @@ class CosmoBox(object):
             realise_now (bool, optional):
                 If True, generate realisations of the density, velocity, and 
                 potential immediately on initialisation.
+
+            frequency_array (array_like, optional):
+                Exact observed frequency coordinates in MHz for the line-of-sight
+                voxels. Its length must equal ``Nz``. When provided, ``freq_array``
+                returns these values unchanged instead of using the narrow-band,
+                constant-channel-width approximation.
         
         Note:
             The `self.delta_k` field is not in proper cosmological units; to 
@@ -65,40 +71,55 @@ class CosmoBox(object):
         self.cosmo = cosmo # Cosmological parameters, required by Cosmolopy fns.
         
         # Number of sample points per dimension
-        self.N = nsamp
+        if isinstance(nsamp, int):
+            self.Nx = self.Ny = self.Nz = nsamp
+        elif isinstance(nsamp, tuple):
+            assert len(nsamp) == 3, "nsamp must be an int or a tuple of length 3"
+            self.Nx, self.Ny, self.Nz = nsamp
+        else:
+            raise TypeError("nsamp must be an int or a tuple of length 3")
+        self.N = self.Nx # For backward compatibility where N was assumed to be cubic
         
         # Box redshift and emission line reference
         self.redshift = redshift
         self.scale_factor = 1. / (1. + redshift)
         self.line_freq = line_freq
+        self.frequency_array_native = None
+        if frequency_array is not None:
+            native_freqs = np.asarray(frequency_array, dtype=float)
+            if native_freqs.ndim != 1 or native_freqs.size != self.Nz:
+                raise ValueError("frequency_array must be one-dimensional with length Nz")
+            if np.any(~np.isfinite(native_freqs)) or np.any(native_freqs <= 0.0):
+                raise ValueError("frequency_array must contain finite, positive values")
+            if not (np.all(np.diff(native_freqs) > 0.0) or np.all(np.diff(native_freqs) < 0.0)):
+                raise ValueError("frequency_array must be strictly monotonic")
+            self.frequency_array_native = native_freqs.copy()
         
-        # Define grid coordinates along each dimension
+        # Define periodic voxel-centre coordinates along each dimension. The
+        # physical side length must be N times the cell width, which also makes
+        # these coordinates exactly consistent with the FFT frequencies below.
         if isinstance(box_scale, tuple):
             assert len(box_scale) == 3, "Must specify scale of x, y, z dimensions"
-            scale_x, scale_y, scale_z = box_scale
-            self.x = np.linspace(-0.5*scale_x, 0.5*scale_x, nsamp) # in Mpc
-            self.y = np.linspace(-0.5*scale_y, 0.5*scale_y, nsamp) # in Mpc
-            self.z = np.linspace(-0.5*scale_z, 0.5*scale_z, nsamp) # in Mpc
-            self.Lx = self.x[-1] - self.x[0] # Linear size of box
-            self.Ly = self.y[-1] - self.y[0] # Linear size of box
-            self.Lz = self.z[-1] - self.z[0] # Linear size of box
+            self.Lx, self.Ly, self.Lz = (float(value) for value in box_scale)
         else:
-            self.x = self.y = self.z = np.linspace(-0.5*box_scale, 
-                                                    0.5*box_scale, 
-                                                    nsamp) # in Mpc
-            self.Lx = self.Ly = self.Lz = self.x[-1] - self.x[0] # Linear size of box
+            self.Lx = self.Ly = self.Lz = float(box_scale)
+        if min(self.Lx, self.Ly, self.Lz) <= 0.0:
+            raise ValueError('All box dimensions must be positive')
+        self.x = (np.arange(self.Nx) - 0.5 * (self.Nx - 1)) * (self.Lx / self.Nx)
+        self.y = (np.arange(self.Ny) - 0.5 * (self.Ny - 1)) * (self.Ly / self.Ny)
+        self.z = (np.arange(self.Nz) - 0.5 * (self.Nz - 1)) * (self.Lz / self.Nz)
         
         # Conversion factor for FFT of power spectrum
         # For an example, see in liteMap.py:fillWithGaussianRandomField() in 
         # Flipper, by Sudeep Das. http://www.astro.princeton.edu/~act/flipper
-        self.boxfactor = (self.N**6.) / (self.Lx * self.Ly * self.Lz)
+        self.boxfactor = (self.Nx * self.Ny * self.Nz)**2. / (self.Lx * self.Ly * self.Lz)
         
         # Fourier mode array
         self.set_fft_sample_spacing() # 3D array, arranged in correct order
         
         # Min./max. k modes in 3D (excl. zero mode)
         self.kmin = 2.*np.pi/np.max([self.Lx, self.Ly, self.Lz])
-        self.kmax = 2.*np.pi*np.sqrt(3.)*self.N/np.min([self.Lx, self.Ly, self.Lz])
+        self.kmax = 2.*np.pi*np.sqrt( (self.Nx/self.Lx)**2. + (self.Ny/self.Ly)**2. + (self.Nz/self.Lz)**2. ) * np.pi
         
         # Create a realisation of density/velocity perturbations in the box
         if realise_now:
@@ -113,13 +134,21 @@ class CosmoBox(object):
         box in real space, with 1D grid point coordinates `x`.
         """
         # These are related to comoving k by factor of 2 pi / L
-        self.Kx = np.zeros((self.N,self.N,self.N))
-        self.Ky = np.zeros((self.N,self.N,self.N))
-        self.Kz = np.zeros((self.N,self.N,self.N))
-        NN = ( self.N*fft.fftfreq(self.N, 1.) ).astype("i")
-        for i in NN:
+        self.Kx = np.zeros((self.Nx,self.Ny,self.Nz))
+        self.Ky = np.zeros((self.Nx,self.Ny,self.Nz))
+        self.Kz = np.zeros((self.Nx,self.Ny,self.Nz))
+        # Round rather than truncate: for some odd sizes floating-point FFT
+        # frequencies can be represented as e.g. 123.99999999999999, and an
+        # integer cast would silently shift an entire Fourier plane by one mode.
+        NNx = np.rint(self.Nx * fft.fftfreq(self.Nx, 1.)).astype(int)
+        NNy = np.rint(self.Ny * fft.fftfreq(self.Ny, 1.)).astype(int)
+        NNz = np.rint(self.Nz * fft.fftfreq(self.Nz, 1.)).astype(int)
+
+        for i in NNx:
             self.Kx[i,:,:] = i
+        for i in NNy:
             self.Ky[:,i,:] = i
+        for i in NNz:
             self.Kz[:,:,i] = i
         
         self.k = 2.*np.pi * np.sqrt(  (self.Kx/self.Lx)**2. 
@@ -265,13 +294,15 @@ class CosmoBox(object):
         # conditions. As such, we can set the whole mode to be zero, make sure 
         # that it's pure imaginary, or use an odd number of samples. Different 
         # ways of dealing with this could change the answer!
-        if self.N % 2 == 0: # Even no. samples
-            # Set highest (negative) freq. to zero
+        if self.Nx % 2 == 0: # Even no. samples in x
             mx = np.where(self.Kx == np.min(self.Kx))
+            Ax[mx] = 0.
+        if self.Ny % 2 == 0: # Even no. samples in y
             my = np.where(self.Ky == np.min(self.Ky))
+            Ay[my] = 0.
+        if self.Nz % 2 == 0: # Even no. samples in z
             mz = np.where(self.Kz == np.min(self.Kz))
-        #    self.Kx[mx] = 0.0; self.Ky[my] = 0.0; self.Kz[mz] = 0.0
-        Ax[mx] = Ay[my] = Az[mz] = 0.
+            Az[mz] = 0.
         
         # Apply prefactor, v(k) = i [f(a) H(a) a] delta_k vec{k} / k^2
         # N.B. velocity_k is missing a prefactor of 1/sqrt(self.box_factor).
@@ -436,6 +467,70 @@ class CosmoBox(object):
                                           method=method,
                                           fill_value=fill_value)
         return delta_s
+
+
+    def linear_rsd_density(self, delta_x=None, bias=1.0, sigma_v=0.0,
+                           fog_model='lorentzian', redshift=None):
+        """Return a biased density field in linear redshift space.
+
+        This Fourier-space implementation applies the Kaiser factor
+        ``b + f mu^2`` directly to a matter overdensity field.  If ``sigma_v``
+        is non-zero, it additionally applies the square root of a power-level
+        Fingers-of-God damping factor.  It is consequently appropriate when a
+        mock and its theoretical power-spectrum model must share precisely the
+        same RSD convention.
+
+        Parameters
+        ----------
+        delta_x : ndarray, optional
+            Matter overdensity field. Defaults to ``self.delta_x``.
+        bias : float
+            Linear tracer bias.
+        sigma_v : float
+            One-dimensional velocity dispersion in km/s.
+        fog_model : {'lorentzian', 'gaussian', 'none'}
+            Power-level FoG model. ``lorentzian`` gives
+            ``[1 + (k_parallel sigma_v/(a H))^2]^-1``, the convention used in
+            the MeerKLASS mock description.
+        redshift : float, optional
+            Redshift at which to evaluate the growth rate and Hubble factor.
+
+        Returns
+        -------
+        ndarray
+            Real-space tracer overdensity in redshift space.
+        """
+        if delta_x is None:
+            delta_x = self.delta_x
+        if redshift is None:
+            redshift = self.redshift
+        if np.shape(delta_x) != (self.Nx, self.Ny, self.Nz):
+            raise ValueError('delta_x must have shape (Nx, Ny, Nz)')
+
+        fog_model = fog_model.lower()
+        if fog_model not in {'lorentzian', 'gaussian', 'none'}:
+            raise ValueError("fog_model must be 'lorentzian', 'gaussian', or 'none'")
+
+        a = 1.0 / (1.0 + redshift)
+        growth_rate = ccl.growth_rate(self.cosmo, a)
+        k_parallel = 2.0 * np.pi * self.Kz / self.Lz
+        mu_sq = np.divide(k_parallel**2, self.k**2,
+                          out=np.zeros_like(self.k), where=self.k > 0.0)
+
+        # Convert a physical velocity dispersion into a comoving LOS distance.
+        hubble_z = 100.0 * self.cosmo['h'] * ccl.h_over_h0(self.cosmo, a)
+        sigma_comoving = sigma_v / (a * hubble_z) if sigma_v > 0.0 else 0.0
+        x = k_parallel * sigma_comoving
+        if fog_model == 'lorentzian':
+            fog_power = 1.0 / (1.0 + x**2)
+        elif fog_model == 'gaussian':
+            fog_power = np.exp(-x**2)
+        else:
+            fog_power = 1.0
+
+        rsd_amplitude = (bias + growth_rate * mu_sq) * np.sqrt(fog_power)
+        delta_k = fft.fftn(delta_x)
+        return fft.ifftn(delta_k * rsd_amplitude).real
     
     
     def lognormal(self, delta_x):
@@ -515,8 +610,8 @@ class CosmoBox(object):
         # Initialise COLABox object
         # (note that the input matter power spectrum should be evaluated at z=0)
         box = pycola3.COLABox(
-            ngrid=self.N,
-            nparticles=self.N,
+            ngrid=(self.Nx, self.Ny, self.Nz),
+            nparticles=(self.Nx, self.Ny, self.Nz),
             box_size=self.Lx * h, # Mpc/h
             z_init=redshift_init,
             z_final=redshift,
@@ -543,9 +638,9 @@ class CosmoBox(object):
         method = 'linear'
         if keep_velocities:
             # Output velocity grids
-            vel_x = np.zeros((self.N, self.N, self.N), dtype='float32')
-            vel_y = np.zeros((self.N, self.N, self.N), dtype='float32')
-            vel_z = np.zeros((self.N, self.N, self.N), dtype='float32')
+            vel_x = np.zeros((self.Nx, self.Ny, self.Nz), dtype='float32')
+            vel_y = np.zeros((self.Nx, self.Ny, self.Nz), dtype='float32')
+            vel_z = np.zeros((self.Nx, self.Ny, self.Nz), dtype='float32')
             
             # Particle positions in COLA box
             part_vec = np.column_stack((px.flatten(), py.flatten(), pz.flatten()))
@@ -804,6 +899,13 @@ class CosmoBox(object):
                 Frequencies, in MHz. Frequency decreases as z coordinate 
                 increases.
         """
+        # Return exact observed frequencies when these were provided at construction.
+        # This preserves a released instrumental channelization for simulation,
+        # foreground modelling, and weighting while retaining the usual analytic
+        # approximation for generic FastBox simulations.
+        if self.frequency_array_native is not None:
+            return self.frequency_array_native.copy()
+
         # Check redshift
         if redshift is None:
             redshift = self.redshift
@@ -813,7 +915,7 @@ class CosmoBox(object):
         freq_centre = a * self.line_freq
         
         # Comoving voxel size
-        dx = self.Lz / self.N
+        dx = self.Lz / self.Nz
         
         # Convert comoving voxel size to frequency channel size
         # df / dr = df / da * (dr / da)^-1 = f0 * (a^2 H) / c
@@ -822,7 +924,7 @@ class CosmoBox(object):
         
         # Comoving units in z direction: place origin in centre of box
         freqs = freq_centre \
-              + df * (np.arange(self.N) - 0.5*(self.N - 1.))
+              + df * (np.arange(self.Nz) - 0.5*(self.Nz - 1.))
         
         # Frequency is decreasing with increasing z coordinate
         return freqs[::-1]
@@ -851,17 +953,18 @@ class CosmoBox(object):
         r = ccl.comoving_angular_distance(self.cosmo, scale_factor)
         
         # Comoving pixel size
-        x_px = self.x[1] - self.x[0]
-        y_px = self.y[1] - self.y[0]
+        x_px = self.Lx / self.Nx
+        y_px = self.Ly / self.Ny
         
         # Angular pixel size
         ang_x = (180. / np.pi) * (x_px / r)
         ang_y = (180. / np.pi) * (y_px / r)
         
         # Pixel index grid; place origin in centre of box
-        grid = np.arange(self.N) - 0.5*(self.N - 1.)
+        grid_x = np.arange(self.Nx) - 0.5*(self.Nx - 1.)
+        grid_y = np.arange(self.Ny) - 0.5*(self.Ny - 1.)
         
-        return ang_x*grid, ang_y*grid
+        return ang_x * grid_x, ang_y * grid_y
     
     
     ############################################################################
@@ -941,7 +1044,7 @@ class CosmoBox(object):
                 the `delta_k` field, ``Re[sum(delta_k delta_k^*)]. 
                 Should find that ``s1 == s2``.
         """
-        s1 = np.sum(self.delta_x**2.) * self.N**3.
+        s1 = np.sum(self.delta_x**2.) * (self.Nx * self.Ny * self.Nz)
         # ^ Factor of N^3 missing due to averaging
         s2 = np.sum(self.delta_k*np.conj(self.delta_k)).real
         print("Parseval test:", s1/s2, "(should be 1.0)")

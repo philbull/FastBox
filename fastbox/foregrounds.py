@@ -87,12 +87,16 @@ class ForegroundModel(object):
         # Foreground angular power spectrum
         # \ell ~ k_perp r / 2
         # Use FG power spectrum model from Santos et al. (2005)
-        C_ell = amp * (0.5*k_perp*r / 1000.)**(beta)
-        C_ell[np.isinf(C_ell)] = 0. # Remove inf at k=0
+        ell_scaled = 0.5 * k_perp * r / 1000.0
+        C_ell = np.zeros_like(ell_scaled)
+        nonzero = ell_scaled > 0.0
+        C_ell[nonzero] = amp * ell_scaled[nonzero]**beta
+        # The stochastic component excludes the monopole, which is set by the
+        # explicit `monopole` argument below.
         
         # Normalise the power spectrum properly (factor of area, and norm. 
         # factor of 2D DFT)
-        C_ell *= (self.box.N**4.) / (self.box.Lx * self.box.Ly)
+        C_ell *= (self.box.Nx * self.box.Ny)**2. / (self.box.Lx * self.box.Ly)
         
         # Generate Gaussian random field with given power spectrum
         re = np.random.normal(0.0, 1.0, np.shape(k_perp))
@@ -107,7 +111,9 @@ class ForegroundModel(object):
         # Apply angular smoothing
         if smoothing_scale is not None:
             ang_x, ang_y = self.box.pixel_array(redshift=redshift)
-            sigma = smoothing_scale / (ang_x[1] - ang_x[0])
+            dx_deg = float(np.median(np.abs(np.diff(ang_x))))
+            dy_deg = float(np.median(np.abs(np.diff(ang_y))))
+            sigma = (smoothing_scale / dx_deg, smoothing_scale / dy_deg)
             fg_x = scipy.ndimage.gaussian_filter(fg_x, sigma=sigma, mode='wrap')
         
         return fg_x
@@ -139,7 +145,9 @@ class ForegroundModel(object):
         
         # Smooth with isotropic Gaussian
         ang_x, ang_y = self.box.pixel_array(redshift=redshift)
-        sigma = smoothing_scale / (ang_x[1] - ang_x[0])
+        dx_deg = float(np.median(np.abs(np.diff(ang_x))))
+        dy_deg = float(np.median(np.abs(np.diff(ang_y))))
+        sigma = (smoothing_scale / dx_deg, smoothing_scale / dy_deg)
         alpha = scipy.ndimage.gaussian_filter(alpha, sigma=sigma, mode='wrap')
         return alpha
     
@@ -224,7 +232,7 @@ class GlobalSkyModel(object):
         import healpy as hp
         
         # Initialise empty cube
-        fgcube = np.zeros((self.box.N, self.box.N, self.box.N))
+        fgcube = np.zeros((self.box.Nx, self.box.Ny, self.box.Nz))
         
         # Get frequency array and scaling
         freqs = self.box.freq_array(redshift=redshift)
@@ -233,11 +241,12 @@ class GlobalSkyModel(object):
         delta_ang_y = np.max(ang_y) - np.min(ang_y)
         
         # Cartesian projection of maps
-        npix = self.box.N
+        npix_x = self.box.Nx
+        npix_y = self.box.Ny
         lonra = [lon0 - 0.5*delta_ang_x, lon0 + 0.5*delta_ang_x]
         latra = [lat0 - 0.5*delta_ang_y, lat0 + 0.5*delta_ang_y]
         proj = hp.projector.CartesianProj(lonra=lonra, latra=latra, coord='G',
-                                          xsize=npix, ysize=npix)
+                                          xsize=npix_x, ysize=npix_y)
         
         # Fetch maps and perform projection
         if loop:

@@ -35,7 +35,7 @@ class BeamModel(object):
             beam (array_like):
                 Beam value at each voxel in `self.box`.
         """
-        return np.ones((self.box.N, self.box.N, self.box.N))
+        return np.ones((self.box.Nx, self.box.Ny, self.box.Nz))
     
     
     def beam_value(self, x, y, freq, pol=None):
@@ -136,6 +136,32 @@ class BeamModel(object):
 
 
 
+class GaussianBeamModel(BeamModel):
+    def __init__(self, box, sig_deg):
+        """
+        An object to manage a Gaussian beam as a function of angle and frequency.
+        
+        Parameters:
+            box (CosmoBox):
+                Object containing a simulation box.
+            sig_deg (float):
+                Standard deviation of the Gaussian beam in degrees.
+        """
+        self.box = box
+        self.sig_deg = sig_deg
+        
+    def beam_cube(self, pol=None):
+        """
+        Return beam values in a cube matching the shape of the box.
+        """
+        ang_x, ang_y = self.box.pixel_array() # in degrees
+        x, y = np.meshgrid(ang_x, ang_y, indexing='ij')
+        r2 = x**2 + y**2
+        # Gaussian beam (2D)
+        beam_2d = np.exp(-0.5 * r2 / self.sig_deg**2)
+        # Tile to 3D
+        return np.repeat(beam_2d[:, :, np.newaxis], self.box.Nz, axis=2)
+
 class KatBeamModel(BeamModel):
 
     def __init__(self, box, model='L'):
@@ -191,7 +217,7 @@ class KatBeamModel(BeamModel):
         # Get pixel and frequency arrays and expand into meshes
         ang_x, ang_y = self.box.pixel_array() # in degrees
         freqs = self.box.freq_array() # in MHz
-        x, y, nu = np.meshgrid(ang_x, ang_y, freqs)
+        x, y, nu = np.meshgrid(ang_x, ang_y, freqs, indexing='ij')
         
         # Return beam interpolated onto grid for chosen polarisation
         if pol == 'HH':
@@ -266,7 +292,7 @@ class ZernikeBeamModel(BeamModel):
         # Get pixel and frequency arrays and expand into meshes
         ang_x, ang_y = self.box.pixel_array() # in degrees
         freqs = self.box.freq_array() # in MHz
-        x, y, nu = np.meshgrid(ang_x, ang_y, freqs)
+        x, y, nu = np.meshgrid(ang_x, ang_y, freqs, indexing='ij')
         
         # Convert x and y to angle cosines
         xcos = np.sin(x * np.pi/180.)

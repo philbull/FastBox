@@ -1,0 +1,62 @@
+{
+  "source_file": "/home/bruno/Downloads/13_fast/meerklass_example/MeerKLASS_HI_IM_2021/MK_2021_maps.npz",
+  "science_band_request_mhz": [
+    971.0,
+    1023.0
+  ],
+  "science_band_native_mhz": [
+    971.150390625,
+    1022.978515625
+  ],
+  "native_shape_frequency_x_y": [
+    4096,
+    133,
+    73
+  ],
+  "fastbox_shape_x_y_z": [
+    133,
+    73,
+    249
+  ],
+  "frequency_channel_width_mhz": 0.208984375,
+  "central_frequency_mhz": 997.064453125,
+  "central_redshift": 0.4245876959590358,
+  "redshift_range": [
+    0.38850008118908286,
+    0.4626012260427288
+  ],
+  "ra_dec_tangent_centre_deg": [
+    345.48880570388485,
+    -30.491357939421842
+  ],
+  "transverse_pixel_size_deg": [
+    0.31527928543263617,
+    0.3040729388128028
+  ],
+  "tangent_plane_span_deg": [
+    41.93214496254061,
+    22.1973245333346
+  ],
+  "box_scale_mpc": [
+    1239.2026403722884,
+    655.9879823815768,
+    262.08503057946484
+  ],
+  "voxel_size_mpc": [
+    9.317313085505928,
+    8.986136744953107,
+    1.0525503236123086
+  ],
+  "footprint_mask_fraction": 0.19136883304150787,
+  "hitmap_nonzero_fraction_science_band": 0.2755150791651517,
+  "coordinate_model": "Local gnomonic tangent-plane approximation to released ZEA coordinate arrays.",
+  "los_convention": "FastBox z index follows the ascending released frequency array; RSD power uses mu^2 so its sign is convention independent.",
+  "cosmology": {
+    "Omega_c": 0.265,
+    "Omega_b": 0.049,
+    "h": 0.6736,
+    "n_s": 0.9649,
+    "sigma8": 0.811,
+    "transfer_function": "boltzmann_camb"
+  }
+}

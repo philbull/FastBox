@@ -26,7 +26,7 @@ def simple_signal_cov(freqs, amplitude, width, ridge_var=1e-10):
         cov (array_like):
             Signal covariance model.
     """
-    nu, nup = np.meshgrid(freqs, freqs)
+    nu, nup = np.meshgrid(freqs, freqs, indexing='ij')
     cov = amplitude * np.exp(-0.5 * (nu - nup)**2. / width**2.) \
         + ridge_var * np.eye(freqs.size) # ridge adjustment
     return cov
