@@ -70,26 +70,26 @@ All Fourier operations use `numpy.fft`. Power spectrum multipoles are obtained v
 
 ## Cross-correlation with galaxy surveys
 
-`GalaxyTracer` (`fastbox.tracers`) Poisson-samples the same density field into a
-discrete galaxy catalogue at a specified comoving number density and linear bias,
-placing galaxies at random positions within their host cells. Redshift-space
-distortions can be applied to the discrete coordinates rather than to the field,
-combining the coherent Kaiser infall with a Fingers-of-God velocity dispersion,
-and a catalogue is assigned back onto the grid using either nearest-grid-point or
-cloud-in-cell weighting.
+Cross-correlating an intensity map with a galaxy survey is one of the main routes
+to a 21cm detection, since foreground residuals do not correlate with galaxy
+positions and so add scatter to the cross spectrum rather than bias. Simulating
+this requires both tracers to be drawn from the same realisation of the density
+field, which `fastbox.tracers` provides.
 
-`fastbox.power` estimates auto and cross spectra from the resulting meshes, with
-optional per-cell weights for survey selection, and deconvolves the
-mass-assignment window following @Jing2005. Theoretical comparisons are
-forward-modelled onto the same FFT grid rather than evaluated in the continuum, so
-that the same discretisation, smoothing and RSD treatment is applied to model and
-measurement alike: `model_obs_power_IM` applies the beam, channel smoothing, grid
-discretisation and RSD of an intensity map, `model_obs_power_gal` the
-mass-assignment window and RSD of a galaxy mesh, and `model_obs_power_CC` the
-HI-galaxy cross spectrum. Because foreground residuals are uncorrelated with the
-galaxy field, the cross spectrum is the configuration in which they contribute
-variance but not bias, and it is the measurement through which current IM
-experiments expect a first detection.
+`GalaxyTracer` turns a density field into a discrete galaxy catalogue by Poisson
+sampling, given a target number density and a linear bias. Because the galaxies
+are discrete objects rather than a continuous field, redshift-space distortions
+can be applied to their positions directly, and the catalogue is then placed back
+onto the simulation grid using a choice of mass-assignment scheme.
+
+`fastbox.power` measures auto and cross spectra from the resulting maps,
+optionally weighting cells to represent a survey's selection, and corrects for
+the smoothing that gridding a catalogue introduces [@Jing2005]. Its theoretical
+predictions are built on the same grid as the measurement rather than in the
+continuum, so that the beam, the channel width and the gridding are applied to
+the model instead of being removed from the data. Separate models are provided
+for an intensity map (`model_obs_power_IM`), a galaxy map
+(`model_obs_power_gal`), and their cross spectrum (`model_obs_power_CC`).
 
 # Usage Examples
 
