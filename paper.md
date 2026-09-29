@@ -8,23 +8,23 @@ tags:
   - foreground removal
 authors:
   - name: Phil Bull
-    orcid: 0000-0000-0000-0000  # TODO: confirm with Phil
-    affiliation: 1              # TODO: confirm current affiliation
+    orcid: 0000-0001-5668-3101
+    affiliation: 1   # TODO: confirm current affiliation
   - name: Bruno Bizarria
-    orcid: 0000-0000-0000-0000  # TODO: confirm with Bruno
-    affiliation: 2              # TODO: confirm current affiliation
+    orcid: 0000-0001-7794-6599
+    affiliation: 2   # TODO: confirm current affiliation
   - name: Melis Irfan
-    orcid: 0000-0000-0000-0000  # TODO: confirm; see authorship note below
-    affiliation: 3              # TODO: confirm current affiliation
+    orcid: 0000-0003-2021-7357
+    affiliation: 3   # TODO: confirm current affiliation
   - name: Geoff Murphy
-    orcid: 0000-0000-0000-0000  # TODO: Geoff's ORCID
-    affiliation: 4
+    orcid: 0000-0002-8186-3064
+    affiliation: 4   # TODO: confirm current affiliation
 affiliations:
-  - name: [TODO]
+  - name: "TODO: Phil's current affiliation"
     index: 1
-  - name: [TODO]
+  - name: "TODO: Bruno's current affiliation"
     index: 2
-  - name: [TODO]
+  - name: "TODO: Melis's current affiliation"
     index: 3
   - name: University of the Western Cape, Cape Town, South Africa
     index: 4
