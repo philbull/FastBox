@@ -66,6 +66,19 @@ cleaned_ica, _    = fastbox.filters.ica_filter(data_cube, nmodes=3,
 print("Step 3: foreground cleaning done")
 
 # ---------------------------------------------------------------------------
+# (3b) PCA signal-loss transfer function, via mock signal injection
+# ---------------------------------------------------------------------------
+# Each mock is a fresh 128^3 realisation plus a re-clean (~9 s), so nmocks=20
+# takes roughly 3 min. The nmocks=100 default converges tighter but costs ~15.
+mock_fn = lambda: fastbox.tracers.generate_hi_mock(default_cosmo,
+                                                   box_scale=(2e3, 2e3, 2e3),
+                                                   nsamp=128, redshift=0.8)
+T_s, T_m = fastbox.filters.pca_transfer_function(data_cube, cleaned_pca, mock_fn,
+                                                 box, nmodes=3, nmocks=20,
+                                                 nbins=50)
+print("Step 3b: transfer function done")
+
+# ---------------------------------------------------------------------------
 # Figure 1: slice of delta_ln and T_b (signal_cube)
 # ---------------------------------------------------------------------------
 fig, axes = plt.subplots(1, 2, figsize=(10, 4.5))
@@ -112,6 +125,15 @@ ax.errorbar(pca_k, pca_pk, yerr=pca_err, color='tomato', fmt='x',
             ms=5, capsize=2, label="PCA-cleaned $P(k)$", zorder=3)
 ax.errorbar(ica_k, ica_pk, yerr=ica_err, color='goldenrod', fmt='s',
             ms=4, capsize=2, label="ICA-cleaned $P(k)$", zorder=2, alpha=0.8)
+
+# T(k) is only meaningful where it is positive and finite: the top bins are
+# empty because box.kmax overshoots the grid Nyquist, and the lowest-k bins
+# hold few modes and can scatter negative.
+tf_ok = np.isfinite(T_m) & (T_m > 0.)
+ax.errorbar(pca_k[tf_ok], pca_pk[tf_ok] / T_m[tf_ok],
+            yerr=pca_err[tf_ok] / T_m[tf_ok], color='mediumorchid', fmt='d',
+            ms=4, capsize=2, label="PCA-cleaned, $T(k)$-corrected", zorder=6)
+print("    T(k) usable in %d / %d bins" % (tf_ok.sum(), T_m.size))
 
 ax.set_xscale('log')
 ax.set_yscale('log')

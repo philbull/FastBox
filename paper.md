@@ -210,7 +210,7 @@ r, xi = power.est_2pcf(signal_cube)
 k_b, b_eq, ntri = power.bispectrum_equilateral(signal_cube, n_bins=8)
 ```
 
-![Spherically-averaged power spectra from an end-to-end simulation at $z = 0.8$. The theoretical prediction (black) is compared against the true HI signal (blue), and the signal recovered after PCA (red) and ICA (yellow) foreground removal with $N_{\rm fg} = 3$ modes subtracted. Large-scale power loss from foreground filtering is visible at low $k$.](figures/power_spectrum.pdf){#fig:power_spectrum width=100%}
+![Spherically-averaged power spectra from an end-to-end simulation at $z = 0.8$. The theoretical prediction (black) is compared against the true HI signal (blue), and the signal recovered after PCA (red) and ICA (yellow) foreground removal with $N_{\rm fg} = 3$ modes subtracted. Large-scale power loss from foreground cleaning is visible at low $k$. Dividing the PCA result by the transfer function $T(k)$, estimated here from 20 mock signal injections, restores that lost power (purple). At high $k$ the corrected points lie above the true signal: $T(k)$ compensates for signal loss but not for the residual noise, which dominates the cleaned map on those scales.](figures/power_spectrum.pdf){#fig:power_spectrum width=100%}
 
 ## Galaxy catalogue and HI-galaxy cross spectrum
 
