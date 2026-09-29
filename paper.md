@@ -34,7 +34,7 @@ bibliography: paper.bib
 
 # Summary
 
-`FastBox` is a Python package for generating fast, physically realistic simulations of cosmological signals in three-dimensional co-moving boxes, with the primary focus of its application being 21cm intensity mapping (IM) experiments. It provides a framework for producing cosmology-dependent Gaussian and log-normal density fields, as well as modelling the effects of redshift-space distortions and linear biasing, among others. Models of instrumental systematics are incorporated, including radiometer noise and beam convolutions. Diffuse and point source foreground models are included, along with a number of foreground filtering strategies such as PCA, ICA, and transfer function correction via mock signal injection. Lastly, estimators are provided for power spectra, the two-point correlation function, and the equilateral bispectrum. Simulation grids may be cubic or anisotropic, with independent side lengths and cell counts along each Cartesian axis. `FastBox` is designed as a lightweight but realistic test-bench for the development and validation of end-to-end cosmological analysis pipelines.
+`FastBox` is a Python package for generating fast, physically realistic simulations of cosmological signals in three-dimensional co-moving boxes, with the primary focus of its application being 21cm intensity mapping (IM) experiments. It provides a framework for producing cosmology-dependent Gaussian and log-normal density fields, as well as modelling the effects of redshift-space distortions and linear biasing, among others. Models of instrumental systematics are incorporated, including radiometer noise and beam convolutions. Diffuse and point source foreground models are included, along with a number of foreground filtering strategies such as PCA, ICA, and transfer function correction via mock signal injection. Lastly, estimators are provided for power spectra, the two-point correlation function, and the equilateral bispectrum. The same underlying density field can also be Poisson-sampled into a discrete galaxy catalogue, so that HI and galaxy tracers are simulated from common initial conditions and their cross-power spectrum measured. Simulation grids may be cubic or anisotropic, with independent side lengths and cell counts along each Cartesian axis. `FastBox` is designed as a lightweight but realistic test-bench for the development and validation of end-to-end cosmological analysis pipelines.
 
 # Statement of Need
 
@@ -53,8 +53,8 @@ A number of 21cm simulation packages exist, but most are not designed for the ra
 The package is organised into the following submodules:
 
 - `fastbox.box` – core simulation box; density fields, redshift-space transforms, cubic and anisotropic grids
-- `fastbox.power` – power spectrum estimation, the 1D two-point correlation function, and the equilateral bispectrum
-- `fastbox.tracers` – HI tracer biasing, mean brightness temperature, and mock signal generation
+- `fastbox.power` – auto, cross and weighted power spectrum estimation, forward-modelled observational power spectra, the 1D two-point correlation function, and the equilateral bispectrum
+- `fastbox.tracers` – HI tracer biasing, mean brightness temperature, mock signal generation, and Poisson-sampled galaxy catalogues
 - `fastbox.foregrounds` – Galactic synchrotron and extragalactic point source foreground models
 - `fastbox.noise` – radiometer noise model for multi-dish arrays
 - `fastbox.filters` – foreground separation (PCA, ICA, NMF) and transfer function estimation
@@ -67,6 +67,29 @@ The package is organised into the following submodules:
 - `fastbox.analysis`, `fastbox.plot`, `fastbox.utils` – analysis helpers, plotting, and shared utilities
 
 All Fourier operations use `numpy.fft`. Power spectrum multipoles are obtained via `nbodykit` [@Hand2018], while the two-point correlation function and the equilateral bispectrum are estimated natively in `fastbox.power`, the former via the Wiener-Khinchin theorem and the latter using the Scoccimarro estimator.
+
+## Cross-correlation with galaxy surveys
+
+`GalaxyTracer` (`fastbox.tracers`) Poisson-samples the same density field into a
+discrete galaxy catalogue at a specified comoving number density and linear bias,
+placing galaxies at random positions within their host cells. Redshift-space
+distortions can be applied to the discrete coordinates rather than to the field,
+combining the coherent Kaiser infall with a Fingers-of-God velocity dispersion,
+and a catalogue is assigned back onto the grid using either nearest-grid-point or
+cloud-in-cell weighting.
+
+`fastbox.power` estimates auto and cross spectra from the resulting meshes, with
+optional per-cell weights for survey selection, and deconvolves the
+mass-assignment window following @Jing2005. Theoretical comparisons are
+forward-modelled onto the same FFT grid rather than evaluated in the continuum, so
+that the same discretisation, smoothing and RSD treatment is applied to model and
+measurement alike: `model_obs_power_IM` applies the beam, channel smoothing, grid
+discretisation and RSD of an intensity map, `model_obs_power_gal` the
+mass-assignment window and RSD of a galaxy mesh, and `model_obs_power_CC` the
+HI-galaxy cross spectrum. Because foreground residuals are uncorrelated with the
+galaxy field, the cross spectrum is the configuration in which they contribute
+variance but not bias, and it is the measurement through which current IM
+experiments expect a first detection.
 
 # Usage Examples
 
@@ -188,6 +211,29 @@ k_b, b_eq, ntri = power.bispectrum_equilateral(signal_cube, n_bins=8)
 ```
 
 ![Spherically-averaged power spectra from an end-to-end simulation at $z = 0.8$. The theoretical prediction (black) is compared against the true HI signal (blue), and the signal recovered after PCA (red) and ICA (yellow) foreground removal with $N_{\rm fg} = 3$ modes subtracted. Large-scale power loss from foreground filtering is visible at low $k$.](figures/power_spectrum.pdf){#fig:power_spectrum width=100%}
+
+## Galaxy catalogue and HI-galaxy cross spectrum
+
+```python
+from fastbox.tracers import GalaxyTracer
+
+# Poisson-sample a galaxy catalogue from the same density field and assign it
+# to the grid as an overdensity, using cloud-in-cell weighting
+gal = GalaxyTracer(box, vol_density=1e-3, bias=1.4)
+delta_gal = gal.generate_mesh(delta_ln.real, method='CIC', overdensity=True)
+
+# HI x galaxy cross spectrum (weighted_power takes per-cell weights instead)
+k, pk_cross, sigma_cross = power.unweighted_power(cleaned_pca, delta_gal)
+
+# Forward-model the prediction onto the same grid, with the CIC window and
+# the beam applied to the model rather than deconvolved from the data
+th_k, th_pk = power.matter_power_spectrum(k)
+k_cc, pk_cc, _ = power.model_obs_power_CC(th_k, th_pk,
+                                          bias_HI=tracer.bias_HI(),
+                                          bias_gal=1.4,
+                                          Tb=tracer.signal_amplitude(),
+                                          sigdeg=0.3, MAS='CIC')
+```
 
 # Research Impact
 
