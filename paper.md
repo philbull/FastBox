@@ -161,7 +161,7 @@ data_cube = signal_cube + fg_synch_cube + fg_ps_cube + noise_cube
 
 ## Foreground removal and transfer function estimation
 
-PCA, ICA, and NMF foreground filters are available through a unified interface. A bias-correction transfer function can be estimated via mock signal injection following @Cunnington2023:
+PCA, ICA, and NMF foreground filters are available through a unified interface. A bias-correction transfer function can be estimated via mock signal injection, implementing the method introduced by @Cunnington2023:
 
 ```python
 import functools
@@ -243,7 +243,7 @@ k_cc, pk_cc, _ = power.model_obs_power_CC(th_k, th_pk,
 
 # AI Usage Disclosure
 
-Generative AI was used to create an initial outline of this manuscript in keeping with JOSS requirements, which the authors thereafter verified and further iterated on. The transfer function correction code was originally written for [@Murphy2026]. Generative AI was used to adapt this code in a manner consistent with all other `FastBox` functions, for example the inclusion of the docstring.
+Generative AI was used to create an initial outline of this manuscript in keeping with JOSS requirements, which the authors thereafter verified and further iterated on. The transfer function correction implements the mock signal injection method of @Cunnington2023, and is not a new method. The implementation contributed here was written independently for [@Murphy2026]; generative AI was then used to adapt it to `FastBox`'s conventions, for example the inclusion of the docstring.
 
 # Acknowledgements
 
