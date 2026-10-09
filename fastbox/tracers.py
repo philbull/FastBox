@@ -7,6 +7,54 @@ import pylab as plt
 from numpy import fft
 import scipy.ndimage
 
+from .box import CosmoBox
+
+
+def generate_hi_mock(cosmo, box_scale, nsamp, redshift, sigma_nl=120.):
+    """
+    Generate a single mock HI brightness temperature cube.
+
+    Runs the full simulation pipeline: Gaussian density field → HI bias →
+    log-normal transform → linear RSD → brightness temperature scaling.
+    Each call uses a fresh random seed, so repeated calls yield independent
+    realisations suitable for use as mock_fn in pca_transfer_function.
+
+    Parameters:
+        cosmo (pyccl.Cosmology):
+            Cosmological parameters.
+
+        box_scale (tuple of float):
+            Side lengths (Lx, Ly, Lz) of the simulation box in comoving Mpc.
+
+        nsamp (int):
+            Number of grid cells per side.
+
+        redshift (float):
+            Central redshift of the box.
+
+        sigma_nl (float, optional):
+            Non-linear velocity dispersion in km/s for the Fingers-of-God
+            damping in redshift space. Default is 120 km/s.
+
+    Returns:
+        signal_cube (array_like):
+            Mock HI brightness temperature field in mK, shape (nsamp, nsamp, nsamp).
+    """
+    mock_box = CosmoBox(cosmo=cosmo, box_scale=box_scale, nsamp=nsamp,
+                        redshift=redshift, realise_now=False)
+    mock_box.realise_density()
+
+    tracer = HITracer(mock_box)
+    delta_hi = mock_box.delta_x * tracer.bias_HI()
+    delta_ln = mock_box.lognormal(delta_hi)
+
+    vel_k = mock_box.realise_velocity(delta_x=mock_box.delta_x, inplace=True)
+    vel_z = fft.ifftn(vel_k[2]).real
+
+    delta_s = mock_box.redshift_space_density(delta_x=delta_ln.real, velocity_z=vel_z,
+                                              sigma_nl=sigma_nl, method='linear')
+    return tracer.signal_amplitude() * (1. + delta_s)
+
 
 class TracerModel(object):
     

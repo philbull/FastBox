@@ -1,0 +1,252 @@
+---
+title: 'FastBox: A Lightweight Python Package for Fast Cosmological Signal Simulations'
+tags:
+  - Python
+  - cosmology
+  - 21cm intensity mapping
+  - signal simulations
+  - foreground removal
+authors:
+  - name: Phil Bull
+    orcid: 0000-0001-5668-3101
+    affiliation: 1   # TODO: confirm current affiliation
+  - name: Bruno Bizarria
+    orcid: 0000-0001-7794-6599
+    affiliation: 2   # TODO: confirm current affiliation
+  - name: Melis Irfan
+    orcid: 0000-0003-2021-7357
+    affiliation: 3   # TODO: confirm current affiliation
+  - name: Geoff Murphy
+    orcid: 0000-0002-8186-3064
+    affiliation: 4   # TODO: confirm current affiliation
+affiliations:
+  - name: "TODO: Phil's current affiliation"
+    index: 1
+  - name: "TODO: Bruno's current affiliation"
+    index: 2
+  - name: "TODO: Melis's current affiliation"
+    index: 3
+  - name: University of the Western Cape, Cape Town, South Africa
+    index: 4
+date: 21 September 2026
+bibliography: paper.bib
+---
+
+# Summary
+
+`FastBox` is a Python package for generating fast, physically realistic simulations of cosmological signals in three-dimensional co-moving boxes, with the primary focus of its application being 21cm intensity mapping (IM) experiments. It provides a framework for producing cosmology-dependent Gaussian and log-normal density fields, as well as modelling the effects of redshift-space distortions and linear biasing, among others. Models of instrumental systematics are incorporated, including radiometer noise and beam convolutions. Diffuse and point source foreground models are included, along with a number of foreground filtering strategies such as PCA, ICA, and transfer function correction via mock signal injection. Lastly, estimators are provided for power spectra, the two-point correlation function, and the equilateral bispectrum. The same underlying density field can also be Poisson-sampled into a discrete galaxy catalogue, so that HI and galaxy tracers are simulated from common initial conditions and their cross-power spectrum measured. Simulation grids may be cubic or anisotropic, with independent side lengths and cell counts along each Cartesian axis. `FastBox` is designed as a lightweight but realistic test-bench for the development and validation of end-to-end cosmological analysis pipelines.
+
+# Statement of Need
+
+Probes of the 21cm, or neutral hydrogen (HI), emission line with intensity mapping, i.e. measuring unresolved emission at low-resolution but large cosmological volume, are fast becoming one of the leading methods for tests of cosmological models on the largest scales, utilising instruments such as MeerKAT [@Santos2016], HIRAX [@Newburgh2016], and the Square Kilometre Array [@Dewdney2009]. Foreground contamination is a common challenge amongst all such IM experiments, however, with Galactic and extragalactic foreground emission being several orders of magnitude brighter than the HI emission, necessitating the use of statistical or blind foreground removal techniques, which themselves need to be tested on simulations.
+
+A number of 21cm simulation packages exist, but most are not designed for the rapid exploration of post-EoR foregrounds and noise systematics needed when testing new analysis and calibration pipelines. `nbodykit` [@Hand2018] offers the ability to efficiently generate large scale cosmological structure, but `FastBox` aims to build on this by implementing foreground models, instrumental noise, and IM-specific observation effects. It is lightweight, integrates with `pyccl` [@Chisari2019] for accurate nonlinear power spectra, and provides a fully self-enclosed suite suited to testing calibration pipelines.
+
+# State of the Field
+
+`FastBox` intends to serve as a complementary package to existing cosmology-focused packages. `PowerBox` [@Murray2018] simulates two-point distributions (power spectra) in arbitrary numbers of dimensions, and is primarily intended to be a generator of mock galaxy distributions. `Tools21cm` [@Giri2020] aims to instead analyse simulated 21cm signals, primarily at the EoR and Cosmic Dawn (CD). For example, using previously and externally produced simulations, mock radio observations can be produced, as well as 21cm lightcones, and 1D, 2D, and cross power spectra. Lastly, `21cmFAST` [@Mesinger2011] is a simulator focused on early-Universe fields, namely the EoR and CD. `FastBox` complements these by combining post-EoR signal simulation, foreground modelling, noise, and foreground cleaning into a single lightweight package, providing an end-to-end test-bench specifically for IM analysis development.
+
+# Software Design
+
+`FastBox` is built around the `CosmoBox` class (`fastbox.box`), which contains the cosmological parameters, co-moving volume, and grid resolution of a simulation. This handles operations such as density field generation, and brightness temperature scaling. The box need not be cubic: both the side lengths and the number of grid cells may be specified independently per Cartesian axis, so that a simulated volume can be matched to the anisotropic sky-frequency geometry of a real IM survey. `pyccl` [@Chisari2019] handles cosmological computations.
+
+The package is organised into the following submodules:
+
+- `fastbox.box` – core simulation box; density fields, redshift-space transforms, cubic and anisotropic grids
+- `fastbox.power` – auto, cross and weighted power spectrum estimation, forward-modelled observational power spectra, the 1D two-point correlation function, and the equilateral bispectrum
+- `fastbox.tracers` – HI tracer biasing, mean brightness temperature, mock signal generation, and Poisson-sampled galaxy catalogues
+- `fastbox.foregrounds` – Galactic synchrotron and extragalactic point source foreground models
+- `fastbox.noise` – radiometer noise model for multi-dish arrays
+- `fastbox.filters` – foreground separation (PCA, ICA, NMF) and transfer function estimation
+- `fastbox.forecast` – Fisher matrix forecasts for cosmological parameters
+- `fastbox.voids` – void detection and catalogue generation
+- `fastbox.halos` – halo catalogue generation
+- `fastbox.beams` – beam models (Gaussian, KATBeam, Zernike) with FFT and direct convolutions
+- `fastbox.inpaint` – Gaussian process inpainting of flagged or missing data
+- `fastbox.meerklass` – MeerKLASS survey geometry, released-window loading, hit-map noise, and masked weighted PCA
+- `fastbox.analysis`, `fastbox.plot`, `fastbox.utils` – analysis helpers, plotting, and shared utilities
+
+All Fourier operations use `numpy.fft`. Power spectrum multipoles are obtained via `nbodykit` [@Hand2018], while the two-point correlation function and the equilateral bispectrum are estimated natively in `fastbox.power`, the former via the Wiener-Khinchin theorem and the latter using the Scoccimarro estimator.
+
+## Cross-correlation with galaxy surveys
+
+Cross-correlating an intensity map with a galaxy survey is one of the main routes
+to a 21cm detection, since foreground residuals do not correlate with galaxy
+positions and so add scatter to the cross spectrum rather than bias. Simulating
+this requires both tracers to be drawn from the same realisation of the density
+field, which `fastbox.tracers` provides.
+
+`GalaxyTracer` turns a density field into a discrete galaxy catalogue by Poisson
+sampling, given a target number density and a linear bias. Because the galaxies
+are discrete objects rather than a continuous field, redshift-space distortions
+can be applied to their positions directly, and the catalogue is then placed back
+onto the simulation grid using a choice of mass-assignment scheme.
+
+`fastbox.power` measures auto and cross spectra from the resulting maps,
+optionally weighting cells to represent a survey's selection, and corrects for
+the smoothing that gridding a catalogue introduces [@Jing2005]. Its theoretical
+predictions are built on the same grid as the measurement rather than in the
+continuum, so that the beam, the channel width and the gridding are applied to
+the model instead of being removed from the data. Separate models are provided
+for an intensity map (`model_obs_power_IM`), a galaxy map
+(`model_obs_power_gal`), and their cross spectrum (`model_obs_power_CC`).
+
+# Usage Examples
+
+The following illustrates a complete end-to-end simulation and analysis pipeline, beginning with signal generation and ending with power spectrum estimation and correlation function measurement.
+
+## Generating a simulation box
+
+A 128$^3$-cell box spanning $(2\,\mathrm{Gpc})^3$ at redshift $z = 0.8$ with an HI tracer, including a log-normal density transform and linear plus nonlinear redshift-space distortions:
+
+```python
+import numpy.fft as fft
+import fastbox
+from fastbox.box import CosmoBox, default_cosmo
+
+box = CosmoBox(cosmo=default_cosmo, box_scale=(2e3, 2e3, 2e3),
+               nsamp=128, redshift=0.8, realise_now=False)
+box.realise_density()
+
+# Apply HI bias and log-normal transform
+tracer = fastbox.tracers.HITracer(box)
+delta_hi = box.delta_x * tracer.bias_HI()
+delta_ln = box.lognormal(delta_hi)
+
+# Compute radial velocity field and transform to redshift space
+# (sigma_nl = 120 km/s accounts for nonlinear finger-of-god smearing)
+vel_k = box.realise_velocity(delta_x=box.delta_x, inplace=True)
+vel_z = fft.ifftn(vel_k[2]).real
+delta_s = box.redshift_space_density(delta_x=delta_ln.real,
+                                     velocity_z=vel_z, sigma_nl=120.)
+
+# Scale by mean brightness temperature to obtain signal cube in mK
+signal_cube = tracer.signal_amplitude() * (1. + delta_s)
+```
+
+![A single frequency slice ($z = 0.8$) of the log-normal overdensity field $\delta_{\rm ln}$ (left) and the corresponding HI brightness temperature $T_b$ (right), generated on a $128^3$ grid spanning $(2\,\mathrm{Gpc})^3$.](figures/field_slice.pdf){#fig:field_slice width=100%}
+
+## Adding foregrounds and instrument noise
+
+Galactic synchrotron emission and extragalactic point sources are modelled as spatially correlated maps with power-law spectral energy distributions, following the parameterisation of @Santos2005:
+
+```python
+from fastbox.foregrounds import ForegroundModel
+
+fg = ForegroundModel(box)
+
+# Galactic synchrotron (~133 K monopole at 130 MHz)
+fg_synch_map  = fg.realise_foreground_amp(amp=700., beta=-2.4,
+                                          monopole=133e3)
+alpha_synch   = fg.realise_spectral_index(mean_spec_idx=-2.8,
+                                          std_spec_idx=0.00002,
+                                          smoothing_scale=0.1)
+fg_synch_cube = fg.construct_cube(fg_synch_map, alpha_synch, freq_ref=130.)
+
+# Extragalactic point sources (~26.7 K monopole at 130 MHz)
+fg_ps_map  = fg.realise_foreground_amp(amp=57., beta=-1.1,
+                                       monopole=26.7e3, smoothing_scale=0.1)
+alpha_ps   = fg.realise_spectral_index(mean_spec_idx=-2.07,
+                                       std_spec_idx=0.00002,
+                                       smoothing_scale=0.1)
+fg_ps_cube = fg.construct_cube(fg_ps_map, alpha_ps, freq_ref=130.)
+
+# Radiometer noise for a MeerKAT-like 64-dish deep integration
+noise_model = fastbox.noise.NoiseModel(box)
+noise_cube  = noise_model.realise_radiometer_noise(Tinst=18., tp=0.25,
+                                                   fov=1., Ndish=64)
+
+data_cube = signal_cube + fg_synch_cube + fg_ps_cube + noise_cube
+```
+
+## Foreground removal and transfer function estimation
+
+PCA, ICA, and NMF foreground filters are available through a unified interface. A bias-correction transfer function can be estimated via mock signal injection, implementing the method introduced by @Cunnington2023:
+
+```python
+import functools
+
+# Remove N_fg=3 foreground modes with PCA
+cleaned_pca, U_fg, amp_fg = fastbox.filters.pca_filter(data_cube, nmodes=3,
+                                                        return_filter=True)
+# Alternative filters
+cleaned_ica, _ = fastbox.filters.ica_filter(data_cube, nmodes=3,
+                                             return_filter=True)
+cleaned_nmf, _ = fastbox.filters.nmf_filter(data_cube, nmodes=3,
+                                             return_filter=True)
+
+# Estimate PCA transfer function using 100 mock signal injections
+mock_fn = functools.partial(fastbox.tracers.generate_hi_mock,
+                            cosmo=default_cosmo,
+                            box_scale=(2e3, 2e3, 2e3),
+                            nsamp=128, redshift=0.8)
+T_s, T_m = fastbox.filters.pca_transfer_function(data_cube, cleaned_pca,
+                                                  mock_fn, box,
+                                                  nmodes=3, nmocks=100,
+                                                  nbins=50)
+```
+
+## Power spectrum and correlation function estimation
+
+```python
+import numpy as np
+from fastbox.power import Power
+
+# Binned spherically-averaged power spectrum (transfer-function corrected)
+k, pk, stddev = box.binned_power_spectrum(delta_x=cleaned_pca, nbins=50)
+pk_corrected  = pk / T_m
+
+# Theoretical prediction for comparison
+th_k, th_pk = box.theoretical_power_spectrum()
+amp_fac = (tracer.signal_amplitude() * tracer.bias_HI())**2.
+
+# Higher-order and configuration-space statistics
+power = Power(box)
+
+# 1D two-point correlation function (Wiener-Khinchin, no external dependency)
+r, xi = power.est_2pcf(signal_cube)
+
+# Equilateral bispectrum B(k, k, k) via the Scoccimarro estimator
+k_b, b_eq, ntri = power.bispectrum_equilateral(signal_cube, n_bins=8)
+```
+
+![Spherically-averaged power spectra from an end-to-end simulation at $z = 0.8$. The theoretical prediction (black) is compared against the true HI signal (blue), and the signal recovered after PCA (red) and ICA (yellow) foreground removal with $N_{\rm fg} = 3$ modes subtracted. Large-scale power loss from foreground cleaning is visible at low $k$. Dividing the PCA result by the transfer function $T(k)$, estimated here from 20 mock signal injections, restores that lost power (purple). At high $k$ the corrected points lie above the true signal: $T(k)$ compensates for signal loss but not for the residual noise, which dominates the cleaned map on those scales.](figures/power_spectrum.pdf){#fig:power_spectrum width=100%}
+
+## Galaxy catalogue and HI-galaxy cross spectrum
+
+```python
+from fastbox.tracers import GalaxyTracer
+
+# Poisson-sample a galaxy catalogue from the same density field and assign it
+# to the grid as an overdensity, using cloud-in-cell weighting
+gal = GalaxyTracer(box, vol_density=1e-3, bias=1.4)
+delta_gal = gal.generate_mesh(delta_ln.real, method='CIC', overdensity=True)
+
+# HI x galaxy cross spectrum (weighted_power takes per-cell weights instead)
+k, pk_cross, sigma_cross = power.unweighted_power(cleaned_pca, delta_gal)
+
+# Forward-model the prediction onto the same grid, with the CIC window and
+# the beam applied to the model rather than deconvolved from the data
+th_k, th_pk = power.matter_power_spectrum(k)
+k_cc, pk_cc, _ = power.model_obs_power_CC(th_k, th_pk,
+                                          bias_HI=tracer.bias_HI(),
+                                          bias_gal=1.4,
+                                          Tb=tracer.signal_amplitude(),
+                                          sigdeg=0.3, MAS='CIC')
+```
+
+# Research Impact
+
+`FastBox` simulated 21cm data cubes were used in [@Irfan&Bull2021], where kernel principal component analysis was tested as an alternative to standard principal component analysis (PCA) foreground removal techniques. KPCA was found to improve recovery at intermediate-to-large cosmological scales. [@Irfan2023] generated mock 21cm cubes to test PCA foreground removal in four cases of Galactic synchrotron spectral index models, including a high-resolution model they generate via a convolutional neural network (CNN). [@Irfan2024] used `FastBox` mock signal and foreground cubes as inputs for pipelines focused on the removal of 1/f noise. 
+
+[@Engelbrecht2025] utilised mock `FastBox` signal cubes to validate their Radio Navigation Satellite System Radio Frequency Interference (RFI) model against MeerKAT data. [@Murphy2026] used mock signal and foregrounds to validate the statistical separation of 21cm signal and foregrounds in an IM-like experiment using Gibbs sampling and Gaussian Constrained Realisations.
+
+# AI Usage Disclosure
+
+Generative AI was used to create an initial outline of this manuscript in keeping with JOSS requirements, which the authors thereafter verified and further iterated on. The transfer function correction implements the mock signal injection method of @Cunnington2023, and is not a new method. The implementation contributed here was written independently for [@Murphy2026]; generative AI was then used to adapt it to `FastBox`'s conventions, for example the inclusion of the docstring.
+
+# Acknowledgements
+
+[PLACEHOLDER: Acknowledge funding sources (grant numbers), computing resources, and contributors who are not listed as authors.]
+
+# References
