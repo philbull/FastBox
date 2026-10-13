@@ -281,7 +281,11 @@ class Power(object):
             rsd_factor = (bias + f * mu_sq)**2
             
             # FoG Damping (velocity dispersion)
+            
             if sigma_nl > 0:
+
+                fog_model = fog_model.lower()
+                
                 if fog_model == 'lorentzian':
                     D2_fog = 1.0 / (1.0 + k_par_sq * R_nl**2)
                 elif fog_model == 'gaussian':
