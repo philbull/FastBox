@@ -119,7 +119,8 @@ class CosmoBox(object):
         
         # Min./max. k modes in 3D (excl. zero mode)
         self.kmin = 2.*np.pi/np.max([self.Lx, self.Ly, self.Lz])
-        self.kmax = 2.*np.pi*np.sqrt( (self.Nx/self.Lx)**2. + (self.Ny/self.Ly)**2. + (self.Nz/self.Lz)**2. ) * np.pi
+        #self.kmax = 2.*np.pi*np.sqrt( (self.Nx/self.Lx)**2. + (self.Ny/self.Ly)**2. + (self.Nz/self.Lz)**2. ) * np.pi
+        self.kmax = np.sqrt( (self.Nx/self.Lx)**2. + (self.Ny/self.Ly)**2. + (self.Nz/self.Lz)**2. ) * np.pi
         
         # Create a realisation of density/velocity perturbations in the box
         if realise_now:
