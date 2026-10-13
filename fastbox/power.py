@@ -556,7 +556,7 @@ class Power(object):
         
         # Discretization Window
         if MAS is not None:
-            # Retain TWO powers of pixelization for Cross-Correlation, applied directly to pk_3d_obs
+            # Retain ONE power of pixelization for Cross-Correlation, applied directly to pk_3d_obs
             W2_k = self.get_window_correction_grid(method=MAS)
             pk_3d_obs = pk_3d_obs * np.sqrt(W2_k)
 
