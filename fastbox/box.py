@@ -214,7 +214,7 @@ class CosmoBox(object):
         # of the inverse FT! But we can recover the correct (statistical) 
         # result by multiplying by a factor of sqrt(2) [see above, where this 
         # factor was already omitted when defining delta_k].
-        delta_x = fft.ifftn(self.delta_k).real # This ensures the field is real
+        delta_x = fft.ifftn(delta_k).real # This ensures the field is real
         if inplace:
             self.delta_x = delta_x
         
@@ -773,7 +773,7 @@ class CosmoBox(object):
         
         # Discretely-sampled integrand, y
         y = k**2. * pk * self.window(k, R/self.cosmo['h'])
-        I = scipy.integrate.simps(y, k)
+        I = scipy.integrate.simpson(y, k)
         
         # Return sigma_R (note factor of 4pi / (2pi)^3 from integration)
         return np.sqrt( I / (2. * np.pi**2.) )
@@ -993,14 +993,14 @@ class CosmoBox(object):
         _pk = ccl.nonlin_matter_power(self.cosmo, k=_k, a=self.scale_factor)
         _y = _k**2. * _pk * self.window(_k, 8.0/self.cosmo['h'])
         _y = np.nan_to_num(_y)
-        s8_th_win = np.sqrt( scipy.integrate.simps(_y, _k) / (2. * np.pi**2.) )
+        s8_th_win = np.sqrt( scipy.integrate.simpson(_y, _k) / (2. * np.pi**2.) )
         
         # Calc. full sigma8 (in window that is wide enough)
         _k2 = np.logspace(-5, 2, int(5e4))
         _pk2 = ccl.nonlin_matter_power(self.cosmo, k=_k2, a=self.scale_factor)
         _y2 = _k2**2. * _pk2 * self.window(_k2, 8.0/self.cosmo['h'])
         _y2 = np.nan_to_num(_y2)
-        s8_th_full = np.sqrt( scipy.integrate.simps(_y2, _k2) / (2. * np.pi**2.) )
+        s8_th_full = np.sqrt( scipy.integrate.simpson(_y2, _k2) / (2. * np.pi**2.) )
         
         # Calculate sigma8 in real space
         dk = np.reshape(self.delta_k, np.shape(self.k))
