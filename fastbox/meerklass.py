@@ -122,9 +122,9 @@ def effective_reconvolved_beam_sigma_deg(frequencies_mhz: np.ndarray, gamma: flo
 
 
 
-def hitmap_thermal_noise(box, weights_xyz,mask,frequency,t_sample_s=2.0):
+def hitmap_thermal_noise(box, weights_xyz, mask, frequency, t_sample_s=2.0, seed=None):
     """
-    return thermal-noise cube for MeerKLASS    
+    return thermal-noise cube for MeerKLASS   
     Parameters:
         box
         weights_xyz (array_like): 
@@ -135,6 +135,8 @@ def hitmap_thermal_noise(box, weights_xyz,mask,frequency,t_sample_s=2.0):
             array of frequencies
         t_sample_s (float): 
             Observation time for each hit.
+        seed (int, optional):
+            Random seed for reproducibility. Default is None (fresh noise every call).
             
     Returns:
         noise_cube (array_like):
@@ -144,11 +146,10 @@ def hitmap_thermal_noise(box, weights_xyz,mask,frequency,t_sample_s=2.0):
     hits_xyz = np.asarray(weights_xyz, dtype=float)
     mask_xy = np.asarray(mask, dtype=bool)
     
-    
     valid_xyz = (hits_xyz > 0.0) & mask_xy[..., None]
     
     # The nominal MeerKLASS L-band channel spacing is 0.208984375 MHz.
-    delta_nu_hz = float(np.mean(np.diff(frequency))) * 1e6    
+    delta_nu_hz = float(abs(np.mean(np.diff(frequency)))) * 1e6    
     
     nu_ghz = frequency / 1000.0
     
@@ -157,9 +158,10 @@ def hitmap_thermal_noise(box, weights_xyz,mask,frequency,t_sample_s=2.0):
     T_gal_K = 25 * (408.0 / frequency) ** 2.75
     T_sys_K = T_rx_K + 3.0 + 2.725 + T_gal_K
     
-    # Equation (20): sigma_N = Tsys / sqrt(2 * Delta_nu * t_p),
-    # with t_p = N_hits * 2 s. Convert K to mK at the end.
-    t_p_s = hits_xyz * t_sample_s
+    # BUG 10 FIX: Prevent eager-evaluation math crashes in empty/invalid voxels 
+    # by forcing a safe dummy value (1.0) outside the mask.
+    t_p_s = np.where(valid_xyz, hits_xyz * t_sample_s, 1.0)
+    
     sigma_thermal_mK = np.divide(
         1e3 * T_sys_K[None, None, :],
         np.sqrt(2.0 * delta_nu_hz * t_p_s),
@@ -168,18 +170,15 @@ def hitmap_thermal_noise(box, weights_xyz,mask,frequency,t_sample_s=2.0):
     )
     
     # 1.0 reproduces the paper's analytic radiometer prediction.
-    # Set this to 1.2 only when you deliberately want a phenomenological
-    # match to the paper's median measured/theoretical RMS ratio, not a
-    # replacement for real-map injection.
     noise_inflation = 1.0
     sigma_thermal_mK *= noise_inflation
     
-    # A fresh seed / independent Generator must be used for every mock.
-    rng = np.random.default_rng(42*2)
+    # BUG 9 FIX: Allow dynamic seeding instead of hardcoding 42*2
+    rng = np.random.default_rng(seed)
+    
     thermal_noise_mK = rng.normal(loc=0.0, scale=sigma_thermal_mK)
     thermal_noise_mK[~valid_xyz] = 0.0
 
-    valid_sigma_mK = sigma_thermal_mK[valid_xyz]
     return thermal_noise_mK
     
 def pca_masked_weighted(nmodes, cube_mK, mask_xy, hits_xyz,  return_modes=False):
