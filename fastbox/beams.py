@@ -77,14 +77,23 @@ class BeamModel(object):
             field_smoothed (array_like):
                 Beam-convolved field, same shape as the input field.
         """
-        # Get beam cube and normalise (so integral is unity)
+        
         beam = self.beam_cube(pol=pol)
         norm = np.sum(beam.reshape(-1, beam.shape[-1]), axis=0)
+        beam /= norm[np.newaxis, np.newaxis, :]
         
-        # Do 2D FFT convolution with beam on each frequency slice
-        field_sm = scipy.signal.fftconvolve(beam, field_x, mode='same', 
-                                            axes=[0,1])
-        return field_sm / norm[np.newaxis,np.newaxis,:]
+        # We need to shift the beam so its center is at the array origin [0,0]
+        # This prevents the convolved map from being physically shifted/misaligned
+        beam_shifted = np.fft.ifftshift(beam, axes=(0, 1))
+        
+        # Perform 2D cyclic convolution using pure NumPy FFTs
+        # 1. Forward FFT the field and the beam along the spatial axes (X, Y)
+        field_k = np.fft.fft2(field_x, axes=(0, 1))
+        beam_k = np.fft.fft2(beam_shifted, axes=(0, 1))
+        
+        # 2. Multiply in Fourier space, then Inverse FFT back to real space
+        field_sm = np.fft.ifft2(field_k * beam_k, axes=(0, 1)).real
+        return field_sm
 
     
     def convolve_real(self, field_x, pol=None, verbose=False):
