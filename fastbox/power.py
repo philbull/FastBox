@@ -71,6 +71,82 @@ class Power(object):
         
         return W2_k
 
+
+    def get_discrete_window_correction(self, kx3d, ky3d, kz3d, dx, dy, dz, MAS='NGP'):
+            """
+            Calculates the exact 3D squared window function |W(k)|^2 for discrete 
+            mass assignment correction.
+    
+            This corrects for the smoothing effect introduced when discrete mock catalogues 
+            (e.g., galaxies generated uniformly within voxels) are assigned to a regular grid. 
+            For Cloud-in-cell, it gives a discrete [1/8, 3/4, 1/8] kernel per axis, whose 
+            amplitude is 3/4 + cos(k dx)/4.
+            
+            Parameters: 
+            -----------
+            kx3d, ky3d, kz3d : ndarray
+                3D arrays of the Fourier wavenumbers along each axis.
+            dx, dy, dz : float
+                The grid resolution (voxel dimensions) along the x, y, and z axes.
+            MAS : str, optional
+                Mass Assignment Scheme used to generate the mesh. 
+                Currently supports 'NGP' (Nearest Grid Point) or 'CIC' (Cloud-In-Cell).
+                Default is 'NGP'.
+                
+            Returns:
+            --------
+            W2_k : ndarray or float
+                The 3D squared window function |W(k)|^2.
+                If MAS='NGP', returns 1.0.
+                If MAS='CIC', returns the 3D array of the discrete CIC kernel squared.
+            """
+    
+            if MAS.upper() == 'NGP':
+                # Nearest-grid-point assignment returns each galaxy to the same voxel, 
+                # so the mesh has no window[cite: 8].
+                return 1.0
+                
+            elif MAS.upper() == 'CIC':
+                # Cloud-in-cell gives a discrete [1/8, 3/4, 1/8] kernel per axis[cite: 8].
+                # The amplitude is 3/4 + cos(k dx)/4[cite: 8].
+                Wx = 0.75 + 0.25 * np.cos(kx3d * dx)
+                Wy = 0.75 + 0.25 * np.cos(ky3d * dy)
+                Wz = 0.75 + 0.25 * np.cos(kz3d * dz)
+                
+                # The 3D window is the product of the 1D windows
+                W_3D = Wx * Wy * Wz
+                
+                # Return the squared window
+                return W_3D**2
+                
+            else:
+                raise ValueError(f"Unsupported MAS: '{MAS}'. Must be 'NGP' or 'CIC'.")
+            
+    def _get_fog_damping(self, k_par_sq, sigma_nl, fog_model):
+        """
+        Calculates the Fingers-of-God (FoG) damping factor.
+        Shared helper to enforce consistent FoG conventions across all models.
+        """
+        if sigma_nl <= 0.0 or fog_model == None:
+            return 1.0
+            
+        if fog_model not in ['lorentzian', 'gaussian']:
+            raise ValueError("fog_model must be 'lorentzian', 'gaussian', or 'none'")
+            
+        # Cosmology extraction
+        scale_factor = self.box.scale_factor
+        h = self.box.cosmo['h']
+        Hz = 100. * h * ccl.h_over_h0(self.box.cosmo, scale_factor)
+        
+        # Damping scale in comoving Mpc (ensuring no 'h' factor is applied)
+        R_nl = sigma_nl / (scale_factor * Hz)
+        
+        if fog_model == 'lorentzian':
+            return 1.0 / (1.0 + k_par_sq * (R_nl**2))
+        elif fog_model == 'gaussian':
+            return np.exp(-k_par_sq * (R_nl**2))
+
+    
     def unweighted_power(self, delta_x1, delta_x2=None):
         """
         Calculates the 1D spherically averaged auto or cross power spectrum.
@@ -192,7 +268,7 @@ class Power(object):
         """
         Computes the theoretical observational power spectrum by forward-modeling 
         the theoretical matter power spectrum on the 3D FFT grid.
-        Includes Beam smoothing, Channel smoothing, FFT Discretization, and RSD.
+        Includes Beam smoothing, FFT Discretization, and RSD.
         
         Parameters:
         -----------
@@ -208,6 +284,7 @@ class Power(object):
             Set True to apply Kaiser and FoG effects.
         sigma_nl : float
             Velocity dispersion in km/s for Finger of God damping. Set 0 to ignore FoG.
+        fog_model: 'lorentzian' or 'gaussian' or None
             
         Returns:
         --------
@@ -274,25 +351,13 @@ class Power(object):
         # --- RSD (Kaiser + FoG) ---
         if rsd:
             # Safely calculate mu^2 = k_parallel^2 / k_mag^2 (avoid division by zero at k=0)
-            # FIXED: Used np.zeros_like(k_mag_sq) to match the broadcast shape
             mu_sq = np.divide(k_par_sq, k_mag_sq, out=np.zeros_like(k_mag_sq), where=(k_mag_sq != 0))
             
             # Kaiser Factor
             rsd_factor = (bias + f * mu_sq)**2
             
-            # FoG Damping (velocity dispersion)
-            
-            if sigma_nl > 0:
-
-                fog_model = fog_model.lower()
-                
-                if fog_model == 'lorentzian':
-                    D2_fog = 1.0 / (1.0 + k_par_sq * R_nl**2)
-                elif fog_model == 'gaussian':
-                    D2_fog = np.exp(-k_par_sq * R_nl**2)
-
-            else:
-                D2_fog = 1.0
+            # FoG Damping (using the unified helper)
+            D2_fog = self._get_fog_damping(k_par_sq, sigma_nl, fog_model)
                 
             pk_3d = pk_3d * rsd_factor * D2_fog
         else:
@@ -344,7 +409,7 @@ class Power(object):
         
         return kc, vals, stddev
 
-    def model_obs_power_gal(self, km, pkm, bias, MAS='NGP', rsd=True, sigma_nl=120):
+    def model_obs_power_gal(self, km, pkm, bias, MAS='NGP', rsd=True, sigma_nl=120, fog_model='lorentzian'):
         """
         Computes the theoretical observational power spectrum for galaxies
         by forward-modeling the matter power spectrum on the 3D FFT grid.
@@ -362,6 +427,7 @@ class Power(object):
             Set True to apply Kaiser and FoG effects.
         sigma_nl : float
             Velocity dispersion in km/s for Finger of God damping. Set 0 to ignore FoG.
+        fog_model: 'lorentzian' or 'gaussian'
             
         Returns:
         --------
@@ -397,21 +463,14 @@ class Power(object):
         scale_factor = 1.0 / (1.0 + z)
 
         if rsd:
-            h = self.box.cosmo['h']
-            Hz = 100. * h * ccl.h_over_h0(self.box.cosmo, scale_factor)
             f = ccl.growth_rate(self.box.cosmo, scale_factor)
             
-            if sigma_nl > 0:
-                R_nl = (sigma_nl * (1.0 + z) / Hz) * h
-            else:
-                R_nl = 0.0
-                
             # Safely calculate mu^2
             mu_sq = np.divide(k_par_sq, k_mag_sq, out=np.zeros_like(k_mag_sq), where=(k_mag_sq != 0))
             
-            # Kaiser Factor and FoG
+            # Kaiser Factor and FoG (using the unified helper)
             rsd_factor = (bias + f * mu_sq)**2
-            D2_fog = np.exp(-k_par_sq * (R_nl**2)) if sigma_nl > 0 else 1.0
+            D2_fog = self._get_fog_damping(k_par_sq, sigma_nl, fog_model)
             
             pk_3d = pk_3d * rsd_factor * D2_fog
         else:
@@ -422,9 +481,22 @@ class Power(object):
         # 3. Apply Discretization Window (MAS)
         # =======================================================
         if MAS is not None:
-            # Fixed: Removed self.N argument to match your earlier definition
-            W2_k = self.get_window_correction_grid(method=MAS)
-            pk_3d = pk_3d * W2_k
+            # 1. Get the exact voxel dimensions
+            dx = self.box.Lx / self.box.Nx
+            dy = self.box.Ly / self.box.Ny
+            dz = self.box.Lz / self.box.Nz
+            
+            # 2. Reconstruct the 3D k-grid used by the box
+            kx = np.fft.fftfreq(self.box.Nx, d=dx) * 2 * np.pi
+            ky = np.fft.fftfreq(self.box.Ny, d=dy) * 2 * np.pi
+            kz = np.fft.fftfreq(self.box.Nz, d=dz) * 2 * np.pi
+            kx3d, ky3d, kz3d = np.meshgrid(kx, ky, kz, indexing='ij')
+            
+            # 3. Apply the correct discrete window (Replace 'CIC' with your variable for the MAS method if needed)
+            W2_k = self.get_discrete_window_correction(kx3d, ky3d, kz3d, dx, dy, dz, MAS=MAS)
+            
+            # 4. Multiply the auto-power spectrum by the squared window
+            pk_3d *= W2_k
 
         # =======================================================
         # 4. Bin the 3D Model into 1D k-shells
@@ -476,13 +548,11 @@ class Power(object):
             Set True to apply Kaiser and FoG effects.
         sigma_nl : float
             Velocity dispersion in km/s for Finger of God damping.
-        fog_model : {'lorentzian', 'gaussian', 'none'}
+        fog_model : {'lorentzian', 'gaussian', None}
             Power-level Fingers-of-God damping convention. ``lorentzian`` is
             ``[1 + (k_parallel sigma_v/(a H))^2]^-1`` and matches
             :meth:`CosmoBox.linear_rsd_density`.
         """
-        import pyccl as ccl
-        import numpy as np
         
         # =======================================================
         # 1. Calculate Physical Scales & Cosmology
@@ -505,9 +575,8 @@ class Power(object):
         if rsd:
             f = ccl.growth_rate(self.box.cosmo, scale_factor)
             R_nl = sigma_nl / (scale_factor * Hz) if sigma_nl > 0 else 0.0
-            fog_model = fog_model.lower()
-            if fog_model not in {'lorentzian', 'gaussian', 'none'}:
-                raise ValueError("fog_model must be 'lorentzian', 'gaussian', or 'none'")
+            if fog_model not in {'lorentzian', 'gaussian', None}:
+                raise ValueError("fog_model must be 'lorentzian', 'gaussian', or None")
 
         # =======================================================
         # 2. Create the exact 3D Fourier Grid
@@ -537,14 +606,11 @@ class Power(object):
             # Cross-Correlation Kaiser Factor: (b_HI + f*mu^2) * (b_gal + f*mu^2)
             rsd_factor = (bias_HI + f * mu_sq) * (bias_gal + f * mu_sq)
             
-            if fog_model == 'lorentzian' and sigma_nl > 0:
-                D2_fog = 1.0 / (1.0 + k_par_sq * R_nl**2)
-            elif fog_model == 'gaussian' and sigma_nl > 0:
-                D2_fog = np.exp(-k_par_sq * R_nl**2)
-            else:
-                D2_fog = 1.0
+            # FoG Damping (using the unified helper)
+            D2_fog = self._get_fog_damping(k_par_sq, sigma_nl, fog_model)
                 
             pk_3d = pk_3d * rsd_factor * D2_fog
+                
         else:
             # No RSD: just use isotropic cross-bias
             pk_3d = pk_3d * (bias_HI * bias_gal)
@@ -560,9 +626,21 @@ class Power(object):
         
         # Discretization Window
         if MAS is not None:
-            # Retain ONE power of pixelization for Cross-Correlation, applied directly to pk_3d_obs
-            W2_k = self.get_window_correction_grid(method=MAS)
-            pk_3d_obs = pk_3d_obs * np.sqrt(W2_k)
+            dx = self.box.Lx / self.box.Nx
+            dy = self.box.Ly / self.box.Ny
+            dz = self.box.Lz / self.box.Nz
+            
+            kx = np.fft.fftfreq(self.box.Nx, d=dx) * 2 * np.pi
+            ky = np.fft.fftfreq(self.box.Ny, d=dy) * 2 * np.pi
+            kz = np.fft.fftfreq(self.box.Nz, d=dz) * 2 * np.pi
+            kx3d, ky3d, kz3d = np.meshgrid(kx, ky, kz, indexing='ij')
+            
+            # Get the window from our new function
+            W2_k = self.get_discrete_window_correction(kx3d, ky3d, kz3d, dx, dy, dz, MAS=MAS)
+            
+            # The cross-spectrum only takes ONE power of the window!
+            # Because our function returns |W(k)|^2, we must take the square root here:
+            pk_3d_obs *= np.sqrt(W2_k)
 
         # =======================================================
         # 4. Bin the 3D Model into 1D k-shells
@@ -613,7 +691,7 @@ class Power(object):
         Returns:
         --------
             k, pk (array_like):
-                Wavenumbers, from 10^-3.5 to 10^1, in Mpc^-1, and the 
+                Wavenumber in Mpc^-1, and the 
                 theoretical nonlinear power spectrum, in (Mpc)^3.
         """
 
@@ -664,8 +742,9 @@ class Power(object):
             pk_2d = pk_grid * kaiser_factor * fog_damping
             
             # Integrate (average) over mu to get the 1D spherically averaged P(k)
-            pk_1d = np.trapz(pk_2d, x=mu, axis=1)
-            
+            #pk_1d = np.trapz(pk_2d, x=mu, axis=1)
+            pk_1d = np.trapezoid(pk_2d, x=mu, axis=1)
+
             return k, pk_1d
 
     def est_2pcf(self, cube):
@@ -699,13 +778,14 @@ class Power(object):
         
         # 4. Inverse FFT to get the 3D Correlation Function
         # We divide by N^3 to enforce the correct normalization so that xi(r=0) = variance
-        xi_3d = np.fft.ifftn(pk_3d).real / (self.box.N**3)
+        N_tot = self.box.Nx * self.box.Ny * self.box.Nz
+        xi_3d = np.fft.ifftn(pk_3d).real / N_tot
         
         # 5. Create the 3D distance grid (handles periodic wrap-around automatically)
-        x = np.fft.fftfreq(self.box.N, d=1.0/self.box.Lx)
-        y = np.fft.fftfreq(self.box.N, d=1.0/self.box.Ly)
-        z = np.fft.fftfreq(self.box.N, d=1.0/self.box.Lz)
-        
+        x = np.fft.fftfreq(self.box.Nx, d=1.0/self.box.Lx)
+        y = np.fft.fftfreq(self.box.Ny, d=1.0/self.box.Ly)
+        z = np.fft.fftfreq(self.box.Nz, d=1.0/self.box.Lz)
+
         x3d = x[:, None, None]
         y3d = y[None, :, None]
         z3d = z[None, None, :]
@@ -714,9 +794,10 @@ class Power(object):
         
         # 6. Optimal Binning based on Grid Resolution
         # Min radius is dx, Max radius is half the box
-        dx = self.box.Lx / self.box.N
-        dy = self.box.Ly / self.box.N
-        dz = self.box.Lz / self.box.N
+        dx = self.box.Lx / self.box.Nx
+        dy = self.box.Ly / self.box.Ny
+        dz = self.box.Lz / self.box.Nz
+        
         r_min = min(dx, dy, dz)
         r_max = min(self.box.Lx, self.box.Ly, self.box.Lz) / 2.0
         
@@ -772,9 +853,9 @@ class Power(object):
         delta_k[0, 0, 0] = 0.0  # Suppress DC leakage
         
         # 3. Create the exact 3D k-grid
-        kx = np.fft.fftfreq(self.box.N, d=self.box.Lx/self.box.N) * 2 * np.pi
-        ky = np.fft.fftfreq(self.box.N, d=self.box.Ly/self.box.N) * 2 * np.pi
-        kz = np.fft.fftfreq(self.box.N, d=self.box.Lz/self.box.N) * 2 * np.pi
+        kx = np.fft.fftfreq(self.box.Nx, d=self.box.Lx/self.box.Nx) * 2 * np.pi
+        ky = np.fft.fftfreq(self.box.Ny, d=self.box.Ly/self.box.Ny) * 2 * np.pi
+        kz = np.fft.fftfreq(self.box.Nz, d=self.box.Lz/self.box.Nz) * 2 * np.pi
         
         kx3d, ky3d, kz3d = np.meshgrid(kx, ky, kz, indexing='ij')
         k_mag = np.sqrt(kx3d**2 + ky3d**2 + kz3d**2)
@@ -785,13 +866,11 @@ class Power(object):
             p = assign_dict.get(MAS.upper(), 0)
             
             if p > 0:
-                W = np.sinc(np.fft.fftfreq(self.box.N))
-                Wx = W[:, None, None]
-                Wy = W[None, :, None]
-                Wz = W[None, None, :]
+                # Calculate the 1D windows independently for each axis
+                Wx = np.sinc(np.fft.fftfreq(self.box.Nx))[:, None, None]
+                Wy = np.sinc(np.fft.fftfreq(self.box.Ny))[None, :, None]
+                Wz = np.sinc(np.fft.fftfreq(self.box.Nz))[None, None, :]
                 
-                # For the Bispectrum, we deconvolve the field ITSELF (W^p)
-                # rather than the power (W^2p).
                 W_k = (Wx * Wy * Wz)**p
                 W_k[W_k == 0] = np.inf  # Protect against division by zero at nyquist edges
                 delta_k /= W_k
@@ -808,6 +887,7 @@ class Power(object):
         V_box = self.box.Lx * self.box.Ly * self.box.Lz
         
         # 6. The Scoccimarro FFT Estimator Loop
+        N_tot = self.box.Nx * self.box.Ny * self.box.Nz
         for i in range(n_bins):
             # Create a boolean filter mask for the current k-shell
             mask = (k_mag >= bins[i]) & (k_mag < bins[i+1])
@@ -829,10 +909,10 @@ class Power(object):
             den = np.sum(I_x_shell**3)
             
             if den > 0:
-                # The exact cosmological normalization factor: V^2 / N^9
-                B_eq[i] = (V_box**2 / (self.box.N**9)) * (num / den)
-                # The denominator mathematically counts the number of closed triangles / N^6
-                triangles[i] = den * (self.box.N**6) 
+                # The exact cosmological normalization factor: V^2 / N_tot^3
+                B_eq[i] = (V_box**2 / (N_tot**3)) * (num / den)
+                # The denominator mathematically counts the number of closed triangles / N_tot^2
+                triangles[i] = den * (N_tot**2) 
             else:
                 B_eq[i] = np.nan
                 
