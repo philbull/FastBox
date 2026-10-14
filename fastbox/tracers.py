@@ -7,6 +7,7 @@ import pylab as plt
 from numpy import fft
 import scipy.ndimage
 
+
 from .box import CosmoBox
 
 
@@ -54,7 +55,6 @@ def generate_hi_mock(cosmo, box_scale, nsamp, redshift, sigma_nl=120.):
     delta_s = mock_box.redshift_space_density(delta_x=delta_ln.real, velocity_z=vel_z,
                                               sigma_nl=sigma_nl, method='linear')
     return tracer.signal_amplitude() * (1. + delta_s)
-
 
 class TracerModel(object):
     
@@ -234,6 +234,8 @@ class GalaxyTracer:
     def generate_catalogue(self, density_field):
         """
         Generates a discrete galaxy catalogue via Poisson sampling.
+
+        density field must be already biased when passed
         """
         voxel_vol = (self.box.Lx * self.box.Ly * self.box.Lz) / \
                     (self.box.Nx * self.box.Ny * self.box.Nz)
@@ -406,14 +408,13 @@ class GalaxyTracer:
             # 3. Fingers of God (Incoherent thermal velocities)
             if sigma_nl > 0.0:
                 vel_shift_kms += sigma_nl * np.random.normal(loc=0.0, scale=1.0, size=N_gals)
-                
-            # 4. Apply Spatial Displacement to Z-Coordinates
-            # Shift in comoving Mpc = velocity / H(z)
-            dz_mpc = vel_shift_kms / Hz
+
+
+
+            a = self.box.scale_factor
+            
+            dz_mpc = vel_shift_kms / (a * Hz) 
+        
             positions_rsd[:, 2] = (positions_rsd[:, 2] + dz_mpc) % self.box.Lz
             
             return positions_rsd
-
-
-
-
