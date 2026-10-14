@@ -434,6 +434,11 @@ class CosmoBox(object):
                 Interpolation method to use when performing remapping, using the 
                 `scipy.interpolate.griddata` function. Default: 'linear'.
         """
+        import warnings
+        warnings.warn(
+            "Method deprecated. Use linear_rsd_density instead ", 
+            category=DeprecationWarning, 
+            stacklevel=2)
         # Expansion rate (km/s/Mpc)
         Hz = 100.*self.cosmo['h'] * ccl.h_over_h0(self.cosmo, self.scale_factor)
 
