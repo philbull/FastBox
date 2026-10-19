@@ -10,6 +10,18 @@ plugins:
       handlers:
         python:
           paths: [.]
+          options:
+            docstring_options:
+              # Many docstrings name parameters loosely ("lat0, lon0") or omit
+              # types; don't let that fail the strict build in CI
+              warn_unknown_params: false
+              warn_missing_types: false
+
+# Make a broken nav fail the strict build in CI
+validation:
+  nav:
+    omitted_files: warn
+    not_found: warn
 
 nav:
   - Home: index.md
