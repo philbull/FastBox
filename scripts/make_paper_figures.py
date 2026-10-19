@@ -1,6 +1,5 @@
 """Generate figures for the FastBox JOSS paper."""
 import numpy as np
-import numpy.fft as fft
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -9,8 +8,7 @@ import pyccl as ccl
 import fastbox
 from fastbox.box import CosmoBox, default_cosmo
 from fastbox.foregrounds import ForegroundModel
-from nbodykit.lab import ArrayMesh
-from nbodykit.algorithms.fftcorr import FFTCorr
+from fastbox.power import Power
 
 np.random.seed(41)
 
@@ -22,14 +20,10 @@ box = CosmoBox(cosmo=default_cosmo, box_scale=(2e3, 2e3, 2e3), nsamp=128,
 box.realise_density()
 
 tracer = fastbox.tracers.HITracer(box)
-delta_hi = box.delta_x * tracer.bias_HI()
+delta_hi = box.linear_rsd_density(box.delta_x, bias=tracer.bias_HI(),
+                                  sigma_v=120.)
 delta_ln = box.lognormal(delta_hi)
-
-vel_k = box.realise_velocity(delta_x=box.delta_x, inplace=True)
-vel_z = fft.ifftn(vel_k[2]).real
-delta_s = box.redshift_space_density(delta_x=delta_ln.real, velocity_z=vel_z,
-                                     sigma_nl=120., method='linear')
-signal_cube = tracer.signal_amplitude() * (1. + delta_s)
+signal_cube = tracer.signal_amplitude() * (1. + delta_ln)
 
 print("Step 1: simulation box done")
 
@@ -112,13 +106,16 @@ print("Figure 1 saved: figures/field_slice.pdf")
 sig_k,  sig_pk,  sig_err  = box.binned_power_spectrum(delta_x=signal_cube,   nbins=50)
 pca_k,  pca_pk,  pca_err  = box.binned_power_spectrum(delta_x=cleaned_pca,   nbins=50)
 ica_k,  ica_pk,  ica_err  = box.binned_power_spectrum(delta_x=cleaned_ica,   nbins=50)
-th_k,   th_pk             = box.theoretical_power_spectrum()
-
-amp_fac = (tracer.signal_amplitude() * tracer.bias_HI())**2.
+power = Power(box)
+km = np.logspace(-4, 1, 2000)
+_, pkm = power.matter_power_spectrum(km)
+th_k, th_pk, _ = power.model_obs_power_IM(km, pkm, bias=tracer.bias_HI(),
+                                          Tb=tracer.signal_amplitude(),
+                                          sigdeg=0., sigma_nl=120.)
 
 fig, ax = plt.subplots(figsize=(8, 5))
 
-ax.plot(th_k, th_pk * amp_fac, 'k-', lw=1.5, label="Theoretical $P(k)$", zorder=5)
+ax.plot(th_k, th_pk, 'k-', lw=1.5, label="Theoretical $P(k)$", zorder=5)
 ax.errorbar(sig_k, sig_pk, yerr=sig_err, color='steelblue', fmt='.',
             ms=5, capsize=2, label="True HI $P(k)$", zorder=4)
 ax.errorbar(pca_k, pca_pk, yerr=pca_err, color='tomato', fmt='x',
@@ -126,8 +123,7 @@ ax.errorbar(pca_k, pca_pk, yerr=pca_err, color='tomato', fmt='x',
 ax.errorbar(ica_k, ica_pk, yerr=ica_err, color='goldenrod', fmt='s',
             ms=4, capsize=2, label="ICA-cleaned $P(k)$", zorder=2, alpha=0.8)
 
-# T(k) is only meaningful where it is positive and finite: the top bins are
-# empty because box.kmax overshoots the grid Nyquist, and the lowest-k bins
+# T(k) is only meaningful where it is positive and finite: the lowest-k bins
 # hold few modes and can scatter negative.
 tf_ok = np.isfinite(T_m) & (T_m > 0.)
 ax.errorbar(pca_k[tf_ok], pca_pk[tf_ok] / T_m[tf_ok],
@@ -139,8 +135,8 @@ ax.set_xscale('log')
 ax.set_yscale('log')
 ax.set_xlim(1e-3, 1.)
 ax.set_ylim(1e1, 1e5)
-ax.set_xlabel(r"$k$ [$h\,\mathrm{Mpc}^{-1}$]", fontsize=14)
-ax.set_ylabel(r"$P(k)$ [$\mathrm{mK}^2\,h^{-3}\,\mathrm{Mpc}^3$]", fontsize=14)
+ax.set_xlabel(r"$k$ [$\mathrm{Mpc}^{-1}$]", fontsize=14)
+ax.set_ylabel(r"$P(k)$ [$\mathrm{mK}^2\,\mathrm{Mpc}^3$]", fontsize=14)
 ax.legend(frameon=False, fontsize=12)
 ax.tick_params(which='both', direction='in', top=True, right=True)
 

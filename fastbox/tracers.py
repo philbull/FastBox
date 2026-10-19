@@ -15,8 +15,9 @@ def generate_hi_mock(cosmo, box_scale, nsamp, redshift, sigma_nl=120.):
     """
     Generate a single mock HI brightness temperature cube.
 
-    Runs the full simulation pipeline: Gaussian density field → HI bias →
-    log-normal transform → linear RSD → brightness temperature scaling.
+    Runs the full simulation pipeline: Gaussian density field → HI bias and
+    linear RSD (``CosmoBox.linear_rsd_density``) → log-normal transform →
+    brightness temperature scaling.
     Each call uses a fresh random seed, so repeated calls yield independent
     realisations suitable for use as mock_fn in pca_transfer_function.
 
@@ -46,15 +47,10 @@ def generate_hi_mock(cosmo, box_scale, nsamp, redshift, sigma_nl=120.):
     mock_box.realise_density()
 
     tracer = HITracer(mock_box)
-    delta_hi = mock_box.delta_x * tracer.bias_HI()
+    delta_hi = mock_box.linear_rsd_density(mock_box.delta_x, bias=tracer.bias_HI(),
+                                           sigma_v=sigma_nl)
     delta_ln = mock_box.lognormal(delta_hi)
-
-    vel_k = mock_box.realise_velocity(delta_x=mock_box.delta_x, inplace=True)
-    vel_z = fft.ifftn(vel_k[2]).real
-
-    delta_s = mock_box.redshift_space_density(delta_x=delta_ln.real, velocity_z=vel_z,
-                                              sigma_nl=sigma_nl, method='linear')
-    return tracer.signal_amplitude() * (1. + delta_s)
+    return tracer.signal_amplitude() * (1. + delta_ln)
 
 class TracerModel(object):
     
