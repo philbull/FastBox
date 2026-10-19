@@ -1,65 +1,67 @@
 name: Tests
 
-# Test on all pushes, except when the push is literally just a tag (because we
-# tag automatically via CI, and therefore there's no extra code in that push).
-# Also, only test on pull requests into master.
+# Run on every push and on pull requests, so that work on a branch or a fork
+# is tested before it reaches main.
 on:
   pull_request:
   push:
-    branches: [main]
+  workflow_dispatch:
 
 jobs:
   tests:
-    env:
-      ENV_NAME: tests
-      PYTHON: ${{ matrix.python-version }}
-      OS: ${{ matrix.os }}
-    name: Testing
-    runs-on: ${{ matrix.os }}
+    name: Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest]
-        #os: [ubuntu-latest, macos-latest]
-        python-version: [3.9]
+        # Oldest and newest Python versions that pyccl publishes wheels for
+        python-version: ["3.10", "3.13"]
+    env:
+      MPLBACKEND: Agg
     steps:
-      - uses: actions/checkout@master
-        with:
-          fetch-depth: 0
+      - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v2
+      - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
+          cache: pip
 
-      - name: set PY
-        run: echo "PY=$(python -c 'import hashlib, sys;print(hashlib.sha256(sys.version.encode()+sys.executable.encode()).hexdigest())')" >> $GITHUB_ENV
-
-      - name: Setup Environment
+      - name: Install FastBox and test tools
         run: |
-          which pip
-          pip install numpy
-          pip install scipy matplotlib sklearn pytest ipython coverage \
-                      pytest-cov cython scikit-image
-          pip install pyccl
-          pip install nbodykit
-          pip install .
+          python -m pip install --upgrade pip
+          pip install . pytest pytest-cov
 
-      - name: Run Tests
+      - name: Run tests with coverage
         run: |
-          pytest --cov=fastbox \
-                 --cov-config="./.coveragerc" \
-                 --cov-report xml:"./coverage.xml" \
-                 --junitxml="./test-reports/xunit.xml"
+          pytest fastbox/tests \
+                 --cov=fastbox \
+                 --cov-config=.coveragerc \
+                 --cov-report=term \
+                 --cov-report=xml:coverage.xml \
+                 --junitxml=test-reports/xunit.xml
 
-      - name: "Upload coverage to Codecov"
-        uses: codecov/codecov-action@v1
+      - name: Coverage summary
+        if: always()
+        run: |
+          echo "## Coverage (Python ${{ matrix.python-version }})" >> $GITHUB_STEP_SUMMARY
+          python -m coverage report --format=markdown >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
         with:
-          token: ""
-          files: ./coverage.xml
-          directory: ./coverage/reports/
+          name: coverage-py${{ matrix.python-version }}
+          path: |
+            coverage.xml
+            test-reports/
+
+      # Optional: only does anything once the repository is connected to
+      # codecov.io and a CODECOV_TOKEN secret is added. It never fails the run.
+      - name: Upload coverage to Codecov
+        if: matrix.python-version == '3.13'
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage.xml
           flags: unittests
-          env_vars: OS,PYTHON
-          name: codecov-umbrella
-          fail_ci_if_error: true
-          path_to_write_report: ./coverage/codecov_report.txt
-          verbose: false
+          fail_ci_if_error: false
