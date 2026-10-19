@@ -28,7 +28,9 @@ def test_gaussian_box():
     # Check that pixel resolution etc. is correct
     assert box.Lx == box.Ly == box.Lz == 1e2
     assert box.x.size == box.y.size == box.z.size == 16
-    assert np.isclose(np.max(box.x) - np.min(box.x), 1e2)
+    # Coordinates are cell centres, so they span L - dx with spacing dx = L/N
+    assert np.allclose(np.diff(box.x), 1e2 / 16)
+    assert np.isclose(np.max(box.x) - np.min(box.x), 1e2 * (1. - 1. / 16))
     
     # Check that cuboidal boxes work
     box3 = CosmoBox(cosmo=default_cosmo, box_scale=(1e2, 2e2, 1e3), nsamp=16, 
