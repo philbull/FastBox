@@ -2,7 +2,6 @@
 import numpy as np
 import pylab as plt
 from matplotlib import animation, rc
-from IPython.display import HTML
 
 def animate_field(field, coords, coord_fmt="%3.1f MHz", interval=200, 
                   fig=None, colorbar=True):
@@ -64,5 +63,6 @@ def animate_field(field, coords, coord_fmt="%3.1f MHz", interval=200,
                                    frames=field.shape[-1], 
                                    interval=interval, 
                                    blit=True)
+    from IPython.display import HTML  # only needed in notebooks
     return HTML(anim.to_html5_video())
     
