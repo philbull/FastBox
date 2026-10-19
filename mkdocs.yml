@@ -9,45 +9,21 @@ plugins:
   - mkdocstrings:
       handlers:
         python:
-          setup_commands:
-            - import sys
-            - from unittest.mock import MagicMock as mock
-            - sys.modules["numpy"] = mock()
-            - sys.modules["numpy.fft"] = mock()
-            - sys.modules["scipy"] = mock()
-            - sys.modules["scipy.linalg"] = mock()
-            - sys.modules["scipy.ndimage"] = mock()
-            - sys.modules["scipy.signal"] = mock()
-            - sys.modules["scipy.integrate"] = mock()
-            - sys.modules["scipy.interpolate"] = mock()
-            - sys.modules["scipy.optimize"] = mock()
-            - sys.modules["scipy.sparse"] = mock()
-            - sys.modules["scipy.sparse.linalg"] = mock()
-            - sys.modules["sklearn"] = mock()
-            - sys.modules["sklearn.decomposition"] = mock()
-            - sys.modules["skimage"] = mock()
-            - sys.modules["skimage.segmentation"] = mock()
-            - sys.modules["skimage.future.graph"] = mock()
-            - sys.modules["IPython"] = mock()
-            - sys.modules["IPython.display"] = mock()
-            - sys.modules["pylab"] = mock()
-            - sys.modules["matplotlib"] = mock()
-            - sys.modules["pyccl"] = mock()
-            - sys.modules["multiprocessing"] = mock()
-            - sys.modules["katbeam"] = mock()
+          paths: [.]
 
 nav:
   - Home: index.md
   - Code Reference:
       - Box: box.md
       - Beams: beams.md
-      - Constrained realisations: cr.md
       - Data analysis: analysis.md
       - Filters: filters.md
       - Forecasting: forecast.md
       - Foregrounds: foregrounds.md
       - Halos: halos.md
+      - Inpainting: inpaint.md
       - Noise: noise.md
       - Plot: plot.md
+      - Power spectra: power.md
       - Tracers: tracers.md
       - Voids: voids.md
