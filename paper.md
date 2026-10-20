@@ -254,7 +254,7 @@ because the log-normal transform adds power that a linear model does not include
 
 # AI Usage Disclosure
 
-Generative AI was used to create an initial outline of this manuscript in keeping with JOSS requirements, which the authors thereafter verified and further iterated on. The transfer function correction implements the mock signal injection method of @Cunnington2023, and is not a new method. The implementation contributed here was written independently for [@Murphy2026]; generative AI was then used to adapt it to `FastBox`'s conventions, for example the inclusion of the docstring.
+Generative AI was used to create an initial outline of this manuscript in keeping with JOSS requirements, which the authors thereafter verified and further iterated on. The transfer function correction implements the mock signal injection method of @Cunnington2023, and is not a new method. The implementation contributed here was written independently for [@Murphy2026]; generative AI was then used to adapt it to `FastBox`'s conventions, for example the inclusion of the docstring. Lastly, AI was used to perform additional tests on the code base, with any bug and error reports being verified for validity by the authors before implementation.
 
 # Acknowledgements
 
