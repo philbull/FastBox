@@ -5,12 +5,14 @@ Fast simulations of cosmological density fields, subject to anisotropic filterin
 
 ## Installation
 
-To install `fastbox`, simply run `python setup.py install`. The following are required dependencies (all of which can be installed via `pip`):
+`fastbox` needs Python 3.10 or later. To install it, run `pip install .` from the repository directory. The following are required dependencies, which `pip` installs automatically:
 
 * `numpy>=1.18`
 * `scipy>=1.5`
 * `matplotlib>=2.2`
 * `scikit-learn`
+* `scikit-image`
+* `tqdm`
 * `pyccl`
 
 The following optional dependencies are needed for some of the foreground modelling and filtering functions to work:
@@ -20,11 +22,10 @@ The following optional dependencies are needed for some of the foreground modell
 * `multiprocessing`
 
 If you would like to use COLA to generate fast, approximate N-body simulations (see the 
-[``CosmoBox.realise_density_cola()``](box.md) method), please install [https://github.com/philbull/pycola3](pycola3).
+[``CosmoBox.realise_density_cola()``](box.md) method), please install [pycola3](https://github.com/philbull/pycola3).
 
-In many of the examples, we also use `nbodykit` to analyse the simulations (e.g. to produce power spectra and 
-correlation functions). Note that `nbodykit` may have package dependency version clashes with `pyccl` for 
-some versions of Python, so you may need to install one of them manually (from source).
+Power spectra, cross spectra, correlation functions and bispectra of the simulations can be measured with
+`fastbox.power`, which also forward-models the theory onto the simulation grid (see [Power spectra](power.md)).
 
 See the `examples/` directory for some example Jupyter notebooks and scripts.
 

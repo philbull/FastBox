@@ -77,7 +77,8 @@ this requires both tracers to be drawn from the same realisation of the density
 field, which `fastbox.tracers` provides.
 
 `GalaxyTracer` turns a density field into a discrete galaxy catalogue by Poisson
-sampling, given a target number density and a linear bias. Because the galaxies
+sampling, given a target number density and a field that already carries the
+galaxy bias. Because the galaxies
 are discrete objects rather than a continuous field, redshift-space distortions
 can be applied to their positions directly, and the catalogue is then placed back
 onto the simulation grid using a choice of mass-assignment scheme.
@@ -100,7 +101,6 @@ The following illustrates a complete end-to-end simulation and analysis pipeline
 A 128$^3$-cell box spanning $(2\,\mathrm{Gpc})^3$ at redshift $z = 0.8$ with an HI tracer, including a log-normal density transform and linear plus nonlinear redshift-space distortions:
 
 ```python
-import numpy.fft as fft
 import fastbox
 from fastbox.box import CosmoBox, default_cosmo
 
@@ -108,20 +108,16 @@ box = CosmoBox(cosmo=default_cosmo, box_scale=(2e3, 2e3, 2e3),
                nsamp=128, redshift=0.8, realise_now=False)
 box.realise_density()
 
-# Apply HI bias and log-normal transform
+# Apply the HI bias and linear redshift-space distortions in Fourier space
+# (sigma_v = 120 km/s accounts for nonlinear finger-of-god smearing), then
+# a log-normal transform so that the brightness temperature stays positive
 tracer = fastbox.tracers.HITracer(box)
-delta_hi = box.delta_x * tracer.bias_HI()
+delta_hi = box.linear_rsd_density(box.delta_x, bias=tracer.bias_HI(),
+                                  sigma_v=120.)
 delta_ln = box.lognormal(delta_hi)
 
-# Compute radial velocity field and transform to redshift space
-# (sigma_nl = 120 km/s accounts for nonlinear finger-of-god smearing)
-vel_k = box.realise_velocity(delta_x=box.delta_x, inplace=True)
-vel_z = fft.ifftn(vel_k[2]).real
-delta_s = box.redshift_space_density(delta_x=delta_ln.real,
-                                     velocity_z=vel_z, sigma_nl=120.)
-
 # Scale by mean brightness temperature to obtain signal cube in mK
-signal_cube = tracer.signal_amplitude() * (1. + delta_s)
+signal_cube = tracer.signal_amplitude() * (1. + delta_ln)
 ```
 
 ![A single frequency slice ($z = 0.8$) of the log-normal overdensity field $\delta_{\rm ln}$ (left) and the corresponding HI brightness temperature $T_b$ (right), generated on a $128^3$ grid spanning $(2\,\mathrm{Gpc})^3$.](figures/field_slice.pdf){#fig:field_slice width=100%}
@@ -196,13 +192,16 @@ from fastbox.power import Power
 k, pk, stddev = box.binned_power_spectrum(delta_x=cleaned_pca, nbins=50)
 pk_corrected  = pk / T_m
 
-# Theoretical prediction for comparison
-th_k, th_pk = box.theoretical_power_spectrum()
-amp_fac = (tracer.signal_amplitude() * tracer.bias_HI())**2.
+# Forward-model the prediction onto the same grid, including RSD
+power = Power(box)
+th_k = np.logspace(-4, 1, 2000)
+_, th_pk = power.matter_power_spectrum(th_k)
+k_im, pk_im, _ = power.model_obs_power_IM(th_k, th_pk,
+                                          bias=tracer.bias_HI(),
+                                          Tb=tracer.signal_amplitude(),
+                                          sigdeg=0., sigma_nl=120.)
 
 # Higher-order and configuration-space statistics
-power = Power(box)
-
 # 1D two-point correlation function (Wiener-Khinchin, no external dependency)
 r, xi = power.est_2pcf(signal_cube)
 
@@ -210,30 +209,42 @@ r, xi = power.est_2pcf(signal_cube)
 k_b, b_eq, ntri = power.bispectrum_equilateral(signal_cube, n_bins=8)
 ```
 
-![Spherically-averaged power spectra from an end-to-end simulation at $z = 0.8$. The theoretical prediction (black) is compared against the true HI signal (blue), and the signal recovered after PCA (red) and ICA (yellow) foreground removal with $N_{\rm fg} = 3$ modes subtracted. Large-scale power loss from foreground cleaning is visible at low $k$. Dividing the PCA result by the transfer function $T(k)$, estimated here from 20 mock signal injections, restores that lost power (purple). At high $k$ the corrected points lie above the true signal: $T(k)$ compensates for signal loss but not for the residual noise, which dominates the cleaned map on those scales.](figures/power_spectrum.pdf){#fig:power_spectrum width=100%}
+![Spherically-averaged power spectra from an end-to-end simulation at $z = 0.8$. The theoretical prediction (black) is compared against the true HI signal (blue), and the signal recovered after PCA (red) and ICA (yellow) foreground removal with $N_{\rm fg} = 3$ modes subtracted. The prediction is the linear forward model `model_obs_power_IM`, so above $k \approx 0.05\,\mathrm{Mpc}^{-1}$ it falls below the true signal, to which the log-normal transform adds small-scale power. Large-scale power loss from foreground cleaning is visible at low $k$. Dividing the PCA result by the transfer function $T(k)$, estimated here from 20 mock signal injections, restores that lost power (purple). At high $k$ the corrected points lie above the true signal: $T(k)$ compensates for signal loss but not for the residual noise, which dominates the cleaned map on those scales.](figures/power_spectrum.pdf){#fig:power_spectrum width=100%}
 
 ## Galaxy catalogue and HI-galaxy cross spectrum
 
 ```python
 from fastbox.tracers import GalaxyTracer
 
-# Poisson-sample a galaxy catalogue from the same density field and assign it
-# to the grid as an overdensity, using cloud-in-cell weighting
-gal = GalaxyTracer(box, vol_density=1e-3, bias=1.4)
-delta_gal = gal.generate_mesh(delta_ln.real, method='CIC', overdensity=True)
+# Galaxy overdensity from the same density field, with its own bias and the
+# same redshift-space distortions as the HI (GalaxyTracer expects the bias to
+# be in the field already)
+b_gal = 1.4
+delta_g = box.lognormal(box.linear_rsd_density(box.delta_x, bias=b_gal,
+                                               sigma_v=120.))
+
+# Poisson-sample a galaxy catalogue and assign it to the grid as an
+# overdensity, using cloud-in-cell weighting
+gal = GalaxyTracer(box, vol_density=1e-3)
+delta_gal = gal.generate_mesh(delta_g, method='CIC', overdensity=True)
 
 # HI x galaxy cross spectrum (weighted_power takes per-cell weights instead)
 k, pk_cross, sigma_cross = power.unweighted_power(cleaned_pca, delta_gal)
 
-# Forward-model the prediction onto the same grid, with the CIC window and
-# the beam applied to the model rather than deconvolved from the data
-th_k, th_pk = power.matter_power_spectrum(k)
+# Forward-model the prediction onto the same grid, with the CIC window applied
+# to the model rather than deconvolved from the data. These maps have no beam;
+# for beam-convolved maps, set sigdeg to the beam width in degrees
 k_cc, pk_cc, _ = power.model_obs_power_CC(th_k, th_pk,
                                           bias_HI=tracer.bias_HI(),
-                                          bias_gal=1.4,
+                                          bias_gal=b_gal,
                                           Tb=tracer.signal_amplitude(),
-                                          sigdeg=0.3, MAS='CIC')
+                                          sigdeg=0., MAS='CIC', sigma_nl=120.)
 ```
+
+The forward models are linear in the density field. On large scales the measured
+cross spectrum therefore falls below the model by the PCA signal loss, which the
+transfer function above corrects; on small scales it rises above the model,
+because the log-normal transform adds power that a linear model does not include.
 
 # Research Impact
 

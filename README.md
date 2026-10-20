@@ -12,12 +12,14 @@ realistic cosmological analysis methods.
 
 ## Installation
 
-To install `fastbox`, simply run `python setup.py install`. The following are required dependencies (all of which can be installed via `pip`):
+`fastbox` needs Python 3.10 or later. To install it, run `pip install .` from the repository directory. The following are required dependencies, which `pip` installs automatically:
 
 * `numpy>=1.18`
 * `scipy>=1.5`
 * `matplotlib>=2.2`
 * `scikit-learn`
+* `scikit-image`
+* `tqdm`
 * `pyccl`
 
 The following optional dependencies are needed for some of the foreground modelling and filtering functions to work:
@@ -30,13 +32,13 @@ The following optional dependencies are needed for some of the foreground modell
 ## INSTALLATION IN A CONDA ENVIRONMENT
 
 ```bash
-conda create -n fast-env python=3.8 pyccl=2.3.0 scikit-learn scikit-image healpy lmfit -c bccp -c conda-forge -y
+conda create -n fast-env python=3.12 pyccl scikit-learn scikit-image healpy lmfit -c conda-forge -y
 
 git clone https://github.com/philbull/FastBox.git
 
-cd Fastbox
+cd FastBox
 
-python setup.py install
+pip install .
 ```
 
 If you want to use katbeam model:
@@ -57,7 +59,7 @@ pip install git+https://github.com/ska-sa/katbeam.git
    Sky Model, and the Battye et al. point source model.
  - Foreground filtering via PCA, ICA, Kernel PCA, least-squares etc.
  - Integration with the DESC Core Cosmology Library (`pyccl`)
- - Calculate power spectra, correlation functions, and their 
-   multipoles, via `nbodykit`
+ - Calculate power spectra, cross spectra, correlation functions and 
+   bispectra, and forward-model them on the simulation grid (`fastbox.power`)
  - Detect and generate catalogues of cosmic voids
 

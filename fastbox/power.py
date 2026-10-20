@@ -103,12 +103,12 @@ class Power(object):
     
             if MAS.upper() == 'NGP':
                 # Nearest-grid-point assignment returns each galaxy to the same voxel, 
-                # so the mesh has no window[cite: 8].
+                # so the mesh has no window.
                 return 1.0
                 
             elif MAS.upper() == 'CIC':
-                # Cloud-in-cell gives a discrete [1/8, 3/4, 1/8] kernel per axis[cite: 8].
-                # The amplitude is 3/4 + cos(k dx)/4[cite: 8].
+                # Cloud-in-cell gives a discrete [1/8, 3/4, 1/8] kernel per axis.
+                # The amplitude is 3/4 + cos(k dx)/4.
                 Wx = 0.75 + 0.25 * np.cos(kx3d * dx)
                 Wy = 0.75 + 0.25 * np.cos(ky3d * dy)
                 Wz = 0.75 + 0.25 * np.cos(kz3d * dz)
@@ -127,7 +127,9 @@ class Power(object):
         Calculates the Fingers-of-God (FoG) damping factor.
         Shared helper to enforce consistent FoG conventions across all models.
         """
-        if sigma_nl <= 0.0 or fog_model == None:
+        if fog_model is not None:
+            fog_model = fog_model.lower()
+        if sigma_nl <= 0.0 or fog_model in (None, 'none'):
             return 1.0
             
         if fog_model not in ['lorentzian', 'gaussian']:
@@ -260,7 +262,6 @@ class Power(object):
             else:
                 vals[i-1] = np.nan
                 stddev[i-1] = np.nan
-        print('DONE')
         
         return kc, vals, stddev
 
@@ -405,7 +406,6 @@ class Power(object):
             else:
                 vals[i-1] = np.nan
                 stddev[i-1] = np.nan
-        print('DONE')
         
         return kc, vals, stddev
 
@@ -521,7 +521,6 @@ class Power(object):
             else:
                 vals[i-1] = np.nan
                 stddev[i-1] = np.nan
-        print('DONE')
         
         return kc, vals, stddev
 
@@ -575,8 +574,6 @@ class Power(object):
         if rsd:
             f = ccl.growth_rate(self.box.cosmo, scale_factor)
             R_nl = sigma_nl / (scale_factor * Hz) if sigma_nl > 0 else 0.0
-            if fog_model not in {'lorentzian', 'gaussian', None}:
-                raise ValueError("fog_model must be 'lorentzian', 'gaussian', or None")
 
         # =======================================================
         # 2. Create the exact 3D Fourier Grid
@@ -665,7 +662,6 @@ class Power(object):
             else:
                 vals[i-1] = np.nan
                 stddev[i-1] = np.nan
-        print('DONE')
         
         return kc, vals, stddev 
 

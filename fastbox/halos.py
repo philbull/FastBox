@@ -98,7 +98,8 @@ class HaloDistribution(object):
             bias = bias[np.newaxis,np.newaxis,:]
         
         # Comoving volume of each voxel
-        voxel_vol = self.box.Lx * self.box.Ly * self.box.Lz / self.box.N**3.
+        voxel_vol = self.box.Lx * self.box.Ly * self.box.Lz \
+                    / (self.box.Nx * self.box.Ny * self.box.Nz)
         
         # Calculate halo overdensity field
         delta_h = bias * delta_x
@@ -169,8 +170,8 @@ class HaloDistribution(object):
                                   % scatter_type)
         
         # Scale coordinates with box size
-        cat[:,0] *= self.box.Lx / self.box.N
-        cat[:,1] *= self.box.Ly / self.box.N
-        cat[:,2] *= self.box.Lz / self.box.N
+        cat[:,0] *= self.box.Lx / self.box.Nx
+        cat[:,1] *= self.box.Ly / self.box.Ny
+        cat[:,2] *= self.box.Lz / self.box.Nz
         
         return cat

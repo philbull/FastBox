@@ -13,6 +13,7 @@ setup_args = {
     'license': 'MIT',
     'version': '0.0.9',
     'description': 'Fast simulations of cosmological density fields, subject to anisotropic filtering, biasing, redshift-space distortions, foregrounds etc.',
+    'python_requires': '>=3.10',  # oldest version with pyccl wheels
     'packages': ['fastbox'],
     'package_dir': {'fastbox': 'fastbox'},
     'install_requires': [
@@ -20,6 +21,8 @@ setup_args = {
         'scipy>=1.5',
         'matplotlib>=2.2',
         'scikit-learn',
+        'scikit-image',
+        'tqdm',
         'pyccl'
     ],
     'extras_require': {'fgextras': ['healpy', 'lmfit', 'multiprocessing', 'GPy']},
