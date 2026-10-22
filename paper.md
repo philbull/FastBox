@@ -244,7 +244,7 @@ k_cc, pk_cc, _ = power.model_obs_power_CC(th_k, th_pk,
 ```
 
 The forward models are linear in the density field. On large scales the measured
-cross spectrum therefore falls below the model by the PCA signal loss, which the
+cross spectrum therefore falls below the model due to PCA signal loss, which the
 transfer function above corrects; on small scales it rises above the model,
 because the log-normal transform adds power that a linear model does not include.
 
