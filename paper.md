@@ -1,5 +1,5 @@
 ---
-title: 'FastBox: A Lightweight Python Package for Fast Cosmological Signal Simulations'
+title: 'FastBox: A lightweight Python package for rapid cosmological 21cm intensity mapping simulations'
 tags:
   - Python
   - cosmology
@@ -7,28 +7,28 @@ tags:
   - signal simulations
   - foreground removal
 authors:
-  - name: Phil Bull
+  - name: Philip Bull
     orcid: 0000-0001-5668-3101
     affiliation: 1   # TODO: confirm current affiliation
-  - name: Bruno Bizarria
+  - name: Bruno B. Bizarria
     orcid: 0000-0001-7794-6599
     affiliation: 2   # TODO: confirm current affiliation
-  - name: Melis Irfan
+  - name: Melis O. Irfan
     orcid: 0000-0003-2021-7357
     affiliation: 3   # TODO: confirm current affiliation
   - name: Geoff Murphy
     orcid: 0000-0002-8186-3064
     affiliation: 4   # TODO: confirm current affiliation
 affiliations:
-  - name: "TODO: Phil's current affiliation"
+  - name: "Jodrell Bank Centre for Astrophysics, Department of Physics & Astronomy, The University of Manchester, Manchester M13 9PL, UK"
     index: 1
-  - name: "TODO: Bruno's current affiliation"
+  - name: "Instituto Nacional de Pesquisas Espacias, São José dos Campos, Brazil"
     index: 2
-  - name: "TODO: Melis's current affiliation"
+  - name: "Institute of Astrophysics, University of Cambridge, Madingley Road, CB3 0HA, UK"
     index: 3
-  - name: University of the Western Cape, Cape Town, South Africa
+  - name: "Department of Physics & Astronomy, University of the Western Cape, Robert Sobukwe Road, Cape Town 7535, South Africa"
     index: 4
-date: 21 September 2026
+date: 22 October 2026
 bibliography: paper.bib
 ---
 
@@ -258,6 +258,6 @@ Generative AI was used to create an initial outline of this manuscript in keepin
 
 # Acknowledgements
 
-[PLACEHOLDER: Acknowledge funding sources (grant numbers), computing resources, and contributors who are not listed as authors.]
+B.B.B. acknowledges resources received from Fundação de Amparo à Pesquisa do Estado de São Paulo (FAPESP) under process 2022/16749-0. This result is part of a project that has received funding from the European Research Council (ERC) under the European Union’s Horizon 2020 research and innovation programme (Grant agreement No. 948764; PB). 
 
 # References
