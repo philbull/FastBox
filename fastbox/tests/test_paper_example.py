@@ -32,21 +32,21 @@ def run_example(make_box, nreal=3, N=40, L=2000.):
         delta_gal = gal.generate_mesh(delta_g, method='CIC', overdensity=True)
 
         power = Power(box)
-        k, pa, _ = power.unweighted_power(signal_cube)
-        _, pc, _ = power.unweighted_power(signal_cube, delta_gal)
+        k, pa, _ = power.estimate_power_spectrum(signal_cube)
+        _, pc, _ = power.estimate_power_spectrum(signal_cube, delta_gal)
         auto.append(pa)
         cross.append(pc)
 
     th_k = np.logspace(-4, 1, 2000)
-    _, th_pk = power.matter_power_spectrum(th_k)
-    _, pk_im, _ = power.model_obs_power_IM(th_k, th_pk, bias=tracer.bias_HI(),
-                                           Tb=tracer.signal_amplitude(),
-                                           sigdeg=0., sigma_nl=120.)
-    _, pk_cc, _ = power.model_obs_power_CC(th_k, th_pk,
-                                           bias_HI=tracer.bias_HI(),
-                                           bias_gal=b_gal,
-                                           Tb=tracer.signal_amplitude(),
-                                           sigdeg=0., MAS='CIC', sigma_nl=120.)
+    _, th_pk = power.predict_matter_power_spectrum(th_k)
+    _, pk_im, _ = power.predict_hi_power_spectrum(th_k, th_pk, bias=tracer.bias_HI(),
+                                                  Tb=tracer.signal_amplitude(),
+                                                  sigdeg=0., sigma_nl=120.)
+    _, pk_cc, _ = power.predict_cross_spectrum(th_k, th_pk,
+                                               bias_HI=tracer.bias_HI(),
+                                               bias_gal=b_gal,
+                                               Tb=tracer.signal_amplitude(),
+                                               sigdeg=0., MAS='CIC', sigma_nl=120.)
     return k, np.mean(auto, 0) / pk_im, np.mean(cross, 0) / pk_cc
 
 

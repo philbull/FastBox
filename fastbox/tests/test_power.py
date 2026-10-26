@@ -19,10 +19,10 @@ def test_power_spectrum_matches_theory(make_box, theory, box_scale, nsamp):
     nreal = 16
     pks = []
     for _ in range(nreal):
-        k, pk, _ = P.unweighted_power(box.realise_density())
+        k, pk, _ = P.estimate_power_spectrum(box.realise_density())
         pks.append(pk)
     pk, err = np.mean(pks, 0), np.std(pks, 0) / np.sqrt(nreal)
-    _, pt, _ = P.model_obs_power_gal(*theory(box), 1., MAS=None, rsd=False)
+    _, pt, _ = P.predict_galaxy_power_spectrum(*theory(box), 1., MAS=None, rsd=False)
 
     sel = k > 3 * k[0]  # the lowest bins hold too few modes
     assert abs(np.nanmean(pk[sel] / pt[sel]) - 1.) < 0.03
@@ -59,20 +59,20 @@ def test_weighted_power_normalisation(make_box, weights):
         x = np.arange(box.Nx)
         w = (1. + 0.5 * np.cos(2. * np.pi * x / box.Nx))[:, None, None] \
             * np.ones_like(d)
-    k, pu, _ = P.unweighted_power(d)
-    _, pw, _ = P.weighted_power(d, w1=w)
-    _, pc, _ = P.weighted_power(d, d, w1=w, w2=w)
+    k, pu, _ = P.estimate_power_spectrum(d)
+    _, pw, _ = P.estimate_weighted_power_spectrum(d, w1=w)
+    _, pc, _ = P.estimate_weighted_power_spectrum(d, d, w1=w, w2=w)
     sel = k > 0.05
     assert abs(np.nanmean(pw[sel] / pu[sel]) - 1.) < 0.05
     assert np.allclose(pc, pw)
 
 
 def test_2pcf_matches_brute_force(make_box):
-    """est_2pcf equals a direct lattice-offset sum binned the same way."""
+    """estimate_correlation_function equals a direct lattice-offset sum binned the same way."""
     N, L, R = 24, 300., 4
     box = make_box(box_scale=L, nsamp=N, redshift=0.5)
     d = box.realise_density()
-    r, xi = Power(box).est_2pcf(d)
+    r, xi = Power(box).estimate_correlation_function(d)
 
     dc, dx = d - d.mean(), L / N
     bins = np.arange(dx, L / 2 + dx, dx)
@@ -101,8 +101,8 @@ def test_bispectrum_quadratic_field(make_box):
         g = box.realise_density()
         g = 0.15 * g / g.std()
         q = g + alpha * (g**2 - np.mean(g**2))
-        _, b_g, _ = P.bispectrum_equilateral(g, n_bins=nbins)
-        _, b_q, _ = P.bispectrum_equilateral(q, n_bins=nbins)
+        _, b_g, _ = P.estimate_equilateral_bispectrum(g, n_bins=nbins)
+        _, b_q, _ = P.estimate_equilateral_bispectrum(q, n_bins=nbins)
         # <P(k1) P(k2)> over closed triangles in each shell, from the same field
         Pk = np.abs(np.fft.fftn(g))**2 * L**3 / N**6
         pred = []
@@ -117,13 +117,13 @@ def test_bispectrum_quadratic_field(make_box):
 
 
 def test_statistics_run_on_noncubic_grid(make_box):
-    """est_2pcf and bispectrum_equilateral handle unequal cell counts."""
+    """The correlation function and bispectrum estimators handle unequal cell counts."""
     box = make_box(box_scale=(600., 400., 500.), nsamp=(24, 16, 20))
     P = Power(box)
     d = box.realise_density()
-    r, xi = P.est_2pcf(d)
+    r, xi = P.estimate_correlation_function(d)
     assert np.all(np.isfinite(xi))
-    _, b, _ = P.bispectrum_equilateral(d, n_bins=4)
+    _, b, _ = P.estimate_equilateral_bispectrum(d, n_bins=4)
     assert b.shape == (4,)
 
 
@@ -133,12 +133,12 @@ def test_forward_models_agree(make_box, theory):
     P = Power(box)
     km, pkm = theory(box, linear=True)
     for fog in ['lorentzian', 'gaussian']:
-        im = P.model_obs_power_IM(km, pkm, 1., 1., 0., sigma_nl=300.,
-                                  fog_model=fog)[1]
-        gal = P.model_obs_power_gal(km, pkm, 1., MAS=None, sigma_nl=300.,
-                                    fog_model=fog)[1]
-        cc = P.model_obs_power_CC(km, pkm, 1., 1., 1., 0., MAS=None,
-                                  sigma_nl=300., fog_model=fog)[1]
+        im = P.predict_hi_power_spectrum(km, pkm, 1., 1., 0., sigma_nl=300.,
+                                         fog_model=fog)[1]
+        gal = P.predict_galaxy_power_spectrum(km, pkm, 1., MAS=None, sigma_nl=300.,
+                                              fog_model=fog)[1]
+        cc = P.predict_cross_spectrum(km, pkm, 1., 1., 1., 0., MAS=None,
+                                      sigma_nl=300., fog_model=fog)[1]
         assert np.allclose(gal, im, rtol=1e-12)
         assert np.allclose(cc, im, rtol=1e-12)
 
@@ -150,9 +150,9 @@ def test_fog_model_names(make_box, theory, model):
     P = Power(box)
     km, pkm = theory(box, linear=True)
     fn = {
-        "IM": lambda m, s=300.: P.model_obs_power_IM(km, pkm, 1., 1., 0., sigma_nl=s, fog_model=m)[1],
-        "gal": lambda m, s=300.: P.model_obs_power_gal(km, pkm, 1., MAS=None, sigma_nl=s, fog_model=m)[1],
-        "CC": lambda m, s=300.: P.model_obs_power_CC(km, pkm, 1., 1., 1., 0., MAS=None, sigma_nl=s, fog_model=m)[1],
+        "IM": lambda m, s=300.: P.predict_hi_power_spectrum(km, pkm, 1., 1., 0., sigma_nl=s, fog_model=m)[1],
+        "gal": lambda m, s=300.: P.predict_galaxy_power_spectrum(km, pkm, 1., MAS=None, sigma_nl=s, fog_model=m)[1],
+        "CC": lambda m, s=300.: P.predict_cross_spectrum(km, pkm, 1., 1., 1., 0., MAS=None, sigma_nl=s, fog_model=m)[1],
     }[model]
     assert np.allclose(fn('Lorentzian'), fn('lorentzian'))
     assert np.allclose(fn('none'), fn('lorentzian', s=0.))
@@ -163,12 +163,12 @@ def test_fog_model_names(make_box, theory, model):
 
 @pytest.mark.parametrize("mas", ["NGP", "CIC"])
 def test_galaxy_model_window_is_discrete_kernel(make_box, theory, mas):
-    """model_obs_power_gal applies the exact window of a scattered catalogue."""
+    """predict_galaxy_power_spectrum applies the exact window of a scattered catalogue."""
     box = make_box(nsamp=32)
     P = Power(box)
     km, pkm = theory(box)
-    base = P.model_obs_power_gal(km, pkm, 1., MAS=None, rsd=False)[1]
-    with_mas = P.model_obs_power_gal(km, pkm, 1., MAS=mas, rsd=False)[1]
+    base = P.predict_galaxy_power_spectrum(km, pkm, 1., MAS=None, rsd=False)[1]
+    with_mas = P.predict_galaxy_power_spectrum(km, pkm, 1., MAS=mas, rsd=False)[1]
     # The model applies the window mode by mode, so compare it binned the same
     # way, weighted by the power in each mode
     k3 = kmag(box)
@@ -181,12 +181,12 @@ def test_galaxy_model_window_is_discrete_kernel(make_box, theory, mas):
 def test_matter_power_spectrum_rsd_runs(make_box):
     box = make_box(nsamp=16)
     k = np.logspace(-3, 0, 50)
-    _, pk = Power(box).matter_power_spectrum(k, rsd=True, sigma_nl=300.)
+    _, pk = Power(box).predict_matter_power_spectrum(k, rsd=True, sigma_nl=300.)
     assert np.all(np.isfinite(pk)) and np.all(pk > 0)
 
 
 def test_gaussian_beam_matches_model(make_box):
-    """GaussianBeamModel damps each mode exactly as model_obs_power_IM assumes."""
+    """GaussianBeamModel damps each mode exactly as predict_hi_power_spectrum assumes."""
     import pyccl as ccl
     # 12.5 Mpc pixels, so the 0.3 deg beam (R ~ 15 Mpc) is resolved
     box = make_box(box_scale=(500., 300., 200.), nsamp=(40, 24, 16))

@@ -108,10 +108,10 @@ pca_k,  pca_pk,  pca_err  = box.binned_power_spectrum(delta_x=cleaned_pca,   nbi
 ica_k,  ica_pk,  ica_err  = box.binned_power_spectrum(delta_x=cleaned_ica,   nbins=50)
 power = Power(box)
 km = np.logspace(-4, 1, 2000)
-_, pkm = power.matter_power_spectrum(km)
-th_k, th_pk, _ = power.model_obs_power_IM(km, pkm, bias=tracer.bias_HI(),
-                                          Tb=tracer.signal_amplitude(),
-                                          sigdeg=0., sigma_nl=120.)
+_, pkm = power.predict_matter_power_spectrum(km)
+th_k, th_pk, _ = power.predict_hi_power_spectrum(km, pkm, bias=tracer.bias_HI(),
+                                                 Tb=tracer.signal_amplitude(),
+                                                 sigdeg=0., sigma_nl=120.)
 
 fig, ax = plt.subplots(figsize=(8, 5))
 
