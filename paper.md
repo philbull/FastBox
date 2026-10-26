@@ -91,8 +91,9 @@ the smoothing that gridding a catalogue introduces [@Jing2005]. Its theoretical
 predictions are built on the same grid as the measurement rather than in the
 continuum, so that the beam, the channel width and the gridding are applied to
 the model instead of being removed from the data. Separate models are provided
-for an intensity map (`model_obs_power_IM`), a galaxy map
-(`model_obs_power_gal`), and their cross spectrum (`model_obs_power_CC`).
+for an intensity map (`predict_hi_power_spectrum`), a galaxy map
+(`predict_galaxy_power_spectrum`), and their cross spectrum
+(`predict_cross_spectrum`).
 
 # Usage Examples
 
@@ -197,21 +198,21 @@ pk_corrected  = pk / T_m
 # Forward-model the prediction onto the same grid, including RSD
 power = Power(box)
 th_k = np.logspace(-4, 1, 2000)
-_, th_pk = power.matter_power_spectrum(th_k)
-k_im, pk_im, _ = power.model_obs_power_IM(th_k, th_pk,
-                                          bias=tracer.bias_HI(),
-                                          Tb=tracer.signal_amplitude(),
-                                          sigdeg=0., sigma_nl=120.)
+_, th_pk = power.predict_matter_power_spectrum(th_k)
+k_im, pk_im, _ = power.predict_hi_power_spectrum(th_k, th_pk,
+                                                 bias=tracer.bias_HI(),
+                                                 Tb=tracer.signal_amplitude(),
+                                                 sigdeg=0., sigma_nl=120.)
 
 # Higher-order and configuration-space statistics
 # 1D two-point correlation function (Wiener-Khinchin, no external dependency)
-r, xi = power.est_2pcf(signal_cube)
+r, xi = power.estimate_correlation_function(signal_cube)
 
 # Equilateral bispectrum B(k, k, k) via the Scoccimarro estimator
-k_b, b_eq, ntri = power.bispectrum_equilateral(signal_cube, n_bins=8)
+k_b, b_eq, ntri = power.estimate_equilateral_bispectrum(signal_cube, n_bins=8)
 ```
 
-![Spherically-averaged power spectra from an end-to-end simulation at $z = 0.8$. The theoretical prediction (black) is compared against the true HI signal (blue), and the signal recovered after PCA (red) and ICA (yellow) foreground removal with $N_{\rm fg} = 3$ modes subtracted. The prediction is the linear forward model `model_obs_power_IM`, so above $k \approx 0.05\,\mathrm{Mpc}^{-1}$ it falls below the true signal, to which the log-normal transform adds small-scale power. Large-scale power loss from foreground cleaning is visible at low $k$. Dividing the PCA result by the transfer function $T(k)$, estimated here from 20 mock signal injections, restores that lost power (purple). At high $k$ the corrected points lie above the true signal: $T(k)$ compensates for signal loss but not for the residual noise, which dominates the cleaned map on those scales.](figures/power_spectrum.pdf){#fig:power_spectrum width=100%}
+![Spherically-averaged power spectra from an end-to-end simulation at $z = 0.8$. The theoretical prediction (black) is compared against the true HI signal (blue), and the signal recovered after PCA (red) and ICA (yellow) foreground removal with $N_{\rm fg} = 3$ modes subtracted. The prediction is the linear forward model `predict_hi_power_spectrum`, so above $k \approx 0.05\,\mathrm{Mpc}^{-1}$ it falls below the true signal, to which the log-normal transform adds small-scale power. Large-scale power loss from foreground cleaning is visible at low $k$. Dividing the PCA result by the transfer function $T(k)$, estimated here from 20 mock signal injections, restores that lost power (purple). At high $k$ the corrected points lie above the true signal: $T(k)$ compensates for signal loss but not for the residual noise, which dominates the cleaned map on those scales.](figures/power_spectrum.pdf){#fig:power_spectrum width=100%}
 
 ## Galaxy catalogue and HI-galaxy cross spectrum
 
@@ -230,17 +231,20 @@ delta_g = box.lognormal(box.linear_rsd_density(box.delta_x, bias=b_gal,
 gal = GalaxyTracer(box, vol_density=1e-3)
 delta_gal = gal.generate_mesh(delta_g, method='CIC', overdensity=True)
 
-# HI x galaxy cross spectrum (weighted_power takes per-cell weights instead)
-k, pk_cross, sigma_cross = power.unweighted_power(cleaned_pca, delta_gal)
+# HI x galaxy cross spectrum (estimate_weighted_power_spectrum takes
+# per-cell weights instead)
+k, pk_cross, sigma_cross = power.estimate_power_spectrum(cleaned_pca,
+                                                         delta_gal)
 
 # Forward-model the prediction onto the same grid, with the CIC window applied
 # to the model rather than deconvolved from the data. These maps have no beam;
 # for beam-convolved maps, set sigdeg to the beam width in degrees
-k_cc, pk_cc, _ = power.model_obs_power_CC(th_k, th_pk,
-                                          bias_HI=tracer.bias_HI(),
-                                          bias_gal=b_gal,
-                                          Tb=tracer.signal_amplitude(),
-                                          sigdeg=0., MAS='CIC', sigma_nl=120.)
+k_cc, pk_cc, _ = power.predict_cross_spectrum(th_k, th_pk,
+                                              bias_HI=tracer.bias_HI(),
+                                              bias_gal=b_gal,
+                                              Tb=tracer.signal_amplitude(),
+                                              sigdeg=0., MAS='CIC',
+                                              sigma_nl=120.)
 ```
 
 The forward models are linear in the density field. On large scales the measured

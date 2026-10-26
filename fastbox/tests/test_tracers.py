@@ -46,11 +46,11 @@ def test_apply_rsd_kaiser_boost(make_box):
         pos = gal.generate_catalogue(d)
         mr = gal._assign_ngp(pos, overdensity=True)
         ms = gal._assign_ngp(gal.apply_rsd(pos, sigma_nl=0.), overdensity=True)
-        k, pr, _ = P.unweighted_power(mr)
-        _, ps, _ = P.unweighted_power(ms)
+        k, pr, _ = P.estimate_power_spectrum(mr)
+        _, ps, _ = P.estimate_power_spectrum(ms)
         ratio_cat.append((ps - 1. / nbar) / (pr - 1. / nbar))
-        _, pfr, _ = P.unweighted_power(d)
-        _, pfs, _ = P.unweighted_power(box.linear_rsd_density(d, sigma_v=0.))
+        _, pfr, _ = P.estimate_power_spectrum(d)
+        _, pfs, _ = P.estimate_power_spectrum(box.linear_rsd_density(d, sigma_v=0.))
         ratio_fourier.append(pfs / pfr)
     lo = k < 0.04
     cat = np.nanmean(np.mean(ratio_cat, 0)[lo])
@@ -81,10 +81,10 @@ def test_galaxy_mesh_carries_input_bias(make_box, bias):
     d = smoothed_field(box)
     nbar = 5e-3
     gal = GalaxyTracer(box, nbar)
-    k, pfield, _ = P.unweighted_power(d)
-    pg = np.mean([P.unweighted_power(gal.generate_mesh(bias * d, method='NGP',
-                                                       overdensity=True))[1]
-                  for _ in range(3)], 0)
+    k, pfield, _ = P.estimate_power_spectrum(d)
+    pg = np.mean([P.estimate_power_spectrum(gal.generate_mesh(bias * d, method='NGP',
+                                                              overdensity=True))[1]
+                         for _ in range(3)], 0)
     lo = k < 0.06
     measured = np.nanmean(((pg - 1. / nbar) / pfield)[lo])
     assert abs(measured - bias**2) < 0.1 * bias**2
@@ -97,10 +97,10 @@ def test_galaxy_mesh_window(make_box, mas):
     P = Power(box)
     d = smoothed_field(box)
     gal = GalaxyTracer(box, 5e-3)
-    k, pf, _ = P.unweighted_power(d)
-    pc = np.mean([P.unweighted_power(d, gal.generate_mesh(d, method=mas,
-                                                          overdensity=True))[1]
-                  for _ in range(4)], 0)
+    k, pf, _ = P.estimate_power_spectrum(d)
+    pc = np.mean([P.estimate_power_spectrum(d, gal.generate_mesh(d, method=mas,
+                                                                 overdensity=True))[1]
+                         for _ in range(4)], 0)
     expected = 1. if mas == 'NGP' else shell_bin(box, cic_kernel(box))
     hi = k > 0.06
     assert abs(np.nanmean((pc / pf)[hi]) - np.nanmean(np.broadcast_to(expected, k.shape)[hi])) < 0.05

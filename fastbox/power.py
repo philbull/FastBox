@@ -149,7 +149,7 @@ class Power(object):
             return np.exp(-k_par_sq * (R_nl**2))
 
     
-    def unweighted_power(self, delta_x1, delta_x2=None):
+    def estimate_power_spectrum(self, delta_x1, delta_x2=None):
         """
         Calculates the 1D spherically averaged auto or cross power spectrum.
         
@@ -169,9 +169,9 @@ class Power(object):
         stddev :
             simple calculation of standard deviation of the estimator
         """
-        return self.weighted_power(delta_x1, delta_x2, w1=None, w2=None)
+        return self.estimate_weighted_power_spectrum(delta_x1, delta_x2, w1=None, w2=None)
 
-    def weighted_power(self, delta_x1, delta_x2=None, w1=None, w2=None):
+    def estimate_weighted_power_spectrum(self, delta_x1, delta_x2=None, w1=None, w2=None):
         """
         Calculates the 1D spherically averaged auto or cross power spectrum, 
         with optional weighting.
@@ -265,7 +265,7 @@ class Power(object):
         
         return kc, vals, stddev
 
-    def model_obs_power_IM(self, km, pkm, bias, Tb, sigdeg, rsd=True, sigma_nl=120,fog_model='lorentzian'):
+    def predict_hi_power_spectrum(self, km, pkm, bias, Tb, sigdeg, rsd=True, sigma_nl=120,fog_model='lorentzian'):
         """
         Computes the theoretical observational power spectrum by forward-modeling 
         the theoretical matter power spectrum on the 3D FFT grid.
@@ -409,7 +409,7 @@ class Power(object):
         
         return kc, vals, stddev
 
-    def model_obs_power_gal(self, km, pkm, bias, MAS='NGP', rsd=True, sigma_nl=120, fog_model='lorentzian'):
+    def predict_galaxy_power_spectrum(self, km, pkm, bias, MAS='NGP', rsd=True, sigma_nl=120, fog_model='lorentzian'):
         """
         Computes the theoretical observational power spectrum for galaxies
         by forward-modeling the matter power spectrum on the 3D FFT grid.
@@ -524,7 +524,7 @@ class Power(object):
         
         return kc, vals, stddev
 
-    def model_obs_power_CC(self, km, pkm, bias_HI, bias_gal, Tb, sigdeg, MAS='NGP', rsd=True, sigma_nl=120, fog_model='lorentzian'):
+    def predict_cross_spectrum(self, km, pkm, bias_HI, bias_gal, Tb, sigdeg, MAS='NGP', rsd=True, sigma_nl=120, fog_model='lorentzian'):
         """
         Computes the theoretical Cross-Correlation power spectrum by forward-modeling 
         the matter power spectrum on the 3D FFT grid.
@@ -670,7 +670,7 @@ class Power(object):
 
     
         
-    def matter_power_spectrum(self, k, rsd=False, sigma_nl=0):
+    def predict_matter_power_spectrum(self, k, rsd=False, sigma_nl=0):
         """
         Calculate the theoretical nonlinear power spectrum for the given 
         cosmological parameters, using CCL. Does not depend on the realisation.
@@ -743,7 +743,7 @@ class Power(object):
 
             return k, pk_1d
 
-    def est_2pcf(self, cube):
+    def estimate_correlation_function(self, cube):
         """
         Calculates the exact 1D two-point correlation function (2PCF) from a 3D cube 
         using the Wiener-Khinchin theorem and Fast Fourier Transforms.
@@ -817,7 +817,7 @@ class Power(object):
         return r_c, xi_1d
 
 
-    def bispectrum_equilateral(self, cube, MAS=None, n_bins=8):
+    def estimate_equilateral_bispectrum(self, cube, MAS=None, n_bins=8):
         """
         Pure numpy implementation of the FFT-based Equilateral Bispectrum estimator.
         Calculates the 3-point clustering for triangles where k1 = k2 = k3 = k.
