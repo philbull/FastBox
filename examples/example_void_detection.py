@@ -13,10 +13,6 @@ box = CosmoBox(cosmo=default_cosmo, box_scale=(1e3, 1e3, 1e3), nsamp=64, realise
 box.realise_density()
 box.realise_velocity()
 
-# Plot real-space density field 
-#plt.matshow(box.delta_x[0], vmin=-1., vmax=20., cmap='cividis')
-#plt.title("Real-space")
-#plt.colorbar()
 
 # Get redshift-space density field
 vel_z = fft.ifftn(box.velocity_k[2]).real
@@ -28,7 +24,7 @@ plt.matshow(delta_s[40], vmin=-1., vmax=2., cmap='cividis')
 plt.title("Redshift-space")
 plt.colorbar()
 
-#plt.show()
+plt.show()
 
 
 
