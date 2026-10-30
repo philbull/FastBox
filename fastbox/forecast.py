@@ -218,8 +218,7 @@ def noise_im(cosmo, expt, ells, zmin, zmax, kmax_cutoff=False):
 
         # Construct noise covariance
         N_ij = f_ell * sigmaT(expt) ** 2.0 / dnu[:, None]
-        # FIXME: Is this definitely channel bandwidth, rather than total bandwidth?
-
+        
         # Apply large-scale cut
         N_ij[np.where(_ell * _lam / (2.0 * np.pi) <= expt["d_min"])] = INF_NOISE
 
