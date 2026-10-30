@@ -158,8 +158,7 @@ def hitmap_thermal_noise(box, weights_xyz, mask, frequency, t_sample_s=2.0, seed
     T_gal_K = 25 * (408.0 / frequency) ** 2.75
     T_sys_K = T_rx_K + 3.0 + 2.725 + T_gal_K
     
-    # BUG 10 FIX: Prevent eager-evaluation math crashes in empty/invalid voxels 
-    # by forcing a safe dummy value (1.0) outside the mask.
+    
     t_p_s = np.where(valid_xyz, hits_xyz * t_sample_s, 1.0)
     
     sigma_thermal_mK = np.divide(
@@ -173,7 +172,6 @@ def hitmap_thermal_noise(box, weights_xyz, mask, frequency, t_sample_s=2.0, seed
     noise_inflation = 1.0
     sigma_thermal_mK *= noise_inflation
     
-    # BUG 9 FIX: Allow dynamic seeding instead of hardcoding 42*2
     rng = np.random.default_rng(seed)
     
     thermal_noise_mK = rng.normal(loc=0.0, scale=sigma_thermal_mK)
