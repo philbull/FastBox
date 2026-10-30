@@ -370,7 +370,7 @@ class CosmoBox(object):
         if delta_k is None:
             delta_k = self.delta_k
             
-        # Calculate pre-factor (FIXME: Make sure D isn't double-counted)
+        # Calculate pre-factor
         # Phi = 3/2 (Omega_m H_0^2) (D(a) / a) delta(k) / k^2
         Omega_m = self.cosmo['Omega_c'] + self.cosmo['Omega_b']
         fac = (3./2.) * Omega_m * (100.*self.cosmo['h'])**2. \
