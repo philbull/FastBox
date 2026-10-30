@@ -6,8 +6,7 @@ from fastbox.box import CosmoBox, default_cosmo
 from numpy import fft
 import sys
 
-# Use linear matter power for log-normal field
-#default_cosmo['matter_power_spectrum'] = 'linear'
+
 
 # Gaussian box
 np.random.seed(11)
@@ -27,7 +26,7 @@ plt.title("Density field (imag)")
 plt.colorbar()
 plt.show()
 
-#sys.exit(0)
+
 
 
 # Trim negative values
@@ -53,17 +52,8 @@ lnpk_data, _ = fft_power.run()
 plt.matshow(np.log10(1.+delta_log[0]), vmin=-2., vmax=3., cmap='cividis')
 plt.title("Log-normal field")
 plt.colorbar()
-
-#plt.plot(th_k, th_pk, 'k-')
-#plt.plot(re_k, re_pk, 'r.')
-#plt.plot(logn_k, logn_pk, 'bx')
-#plt.plot(lnpk_data['k'], lnpk_data['power'], 'g+')
-#plt.xscale('log')
-#plt.yscale('log')
 plt.show()
 
-
-#sys.exit(0)
 
 # Gaussian box with beam smoothing and foreground cut
 transfer_fn = lambda k_perp, k_par: \
@@ -75,12 +65,12 @@ delta_smoothed = box.apply_transfer_fn(box.delta_k, transfer_fn=transfer_fn)
 plt.matshow(delta_smoothed[:,:,0].real, vmin=-1., vmax=2., cmap='cividis')
 plt.title("Density field (smoothed, x,y)")
 plt.colorbar()
-#plt.show()
+plt.show()
 
 plt.matshow(delta_smoothed[:,0,:].real, vmin=-1., vmax=2., cmap='cividis')
 plt.title("Density field (smoothed, x,z)")
 plt.colorbar()
-#plt.show()
+plt.show()
 
 # Log-normal box
 smre_k, smre_pk, smre_stddev \
@@ -89,7 +79,6 @@ smre_k, smre_pk, smre_stddev \
 # Plot some stuff
 fig = plt.figure()
 plt.plot(th_k, th_pk, 'b-', label="Theoretical P(k)")
-#plt.errorbar(re_k, re_pk, yerr=re_stddev, fmt=".", color='r')
 plt.errorbar(re_k, re_pk, yerr=re_stddev, marker='.', color='r', 
              ls='none', label="P(k) from density field")
 plt.errorbar(smre_k, smre_pk, yerr=smre_stddev, marker='x', color='g', 
@@ -101,7 +90,6 @@ plt.ylim((1e0, 1e5))
 plt.show()
 
 
-#sys.exit(0)
 
 
 # Log-normal box
@@ -112,6 +100,7 @@ lnre_k, lnre_pk, lnre_stddev \
 plt.matshow(delta_ln[0], vmin=-1., vmax=2., cmap='cividis')
 plt.title("Log-normal density")
 plt.colorbar()
+plt.show()
 
 
 # Tests
@@ -122,28 +111,10 @@ box.test_parseval()
 # Plot some stuff
 fig = plt.figure()
 plt.plot(th_k, th_pk, 'b-', label="Theoretical P(k)")
-#plt.errorbar(re_k, re_pk, yerr=re_stddev, fmt=".", color='r')
 plt.plot(re_k, re_pk, 'r.', label="P(k) from density field")
 plt.plot(lnre_k, lnre_pk, 'gx', label="P(k) from log-normal")
 plt.xscale('log')ples
 plt.yscale('log')
 plt.legend(loc='lower left', frameon=False)
-
-"""
-plt.subplot(212)
-
-def dx(R):
-    dk = np.reshape(box.delta_k, np.shape(box.k))
-    dk = dk * box.window1(box.k, R/box.cosmo['h'])
-    dk = np.nan_to_num(dk)
-    dx = fft.ifftn(dk)
-    return dx
-
-dx2 = dx(8.0)
-dx3 = dx(100.0)
-
-plt.hist(dx2.flatten(), bins=100, alpha=0.2)
-plt.hist(dx3.flatten(), bins=100, alpha=0.2)
-"""
 plt.show()
 
