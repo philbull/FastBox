@@ -143,7 +143,7 @@ def gaussian_cr_1d(d, w, S, N, realisations=1, add_noise=True,
             # Add random part to RHS and solve using CG
             b_cr = b + omegaN + sqrtS @ sqrtNinvw @ omegaS
             x, info2 = conjgrad(A, b_cr, maxiter=cg_maxiter, M=Ainv)
-            #solns[i,j,:] = x
+            
             
             # Add noise realisation if requested; otherwise just rescale x 
             # variable by factor of sqrtS to get realisation 's'
