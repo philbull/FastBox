@@ -11,8 +11,6 @@ import pyccl as ccl
 import fastbox
 from fastbox.box import CosmoBox, default_cosmo
 from fastbox.foregrounds import ForegroundModel
-#from nbodykit.algorithms.fftpower import FFTPower
-#import time, sys
 from fastbox.beams import KatBeamModel
 import time
 
@@ -28,14 +26,14 @@ box = CosmoBox(cosmo=default_cosmo, box_scale=(4e3,4e3,4e3), nsamp=128,
                redshift=0.8, realise_now=False)
 box.realise_density()
 
-# (1b) Rescale tracer by bias [FIXME: Check this is being done in the right order]
+# (1b) Rescale tracer by bias
 tracer = fastbox.tracers.HITracer(box)
 delta_hi = box.delta_x * tracer.bias_HI()
 
 # (1c) Transform to a log-normal field
 delta_ln = box.lognormal(delta_hi)
 
-# (1d) Calculate radial velocity field (uses Gaussian density field; FIXME)
+# (1d) Calculate radial velocity field
 vel_k = box.realise_velocity(delta_x=box.delta_x, inplace=True)
 vel_z = fft.ifftn(vel_k[2]).real # inverse FFT to get real-space radial velocity
 
@@ -160,27 +158,6 @@ print("\t(5) Calculating correlation function complete (%3.3f sec)" % (time.time
 # Plotting
 #-------------------------------------------------------------------------------
 
-
-# Plot fields
-#plt.matshow(signal_cube[0,:,:], vmin=-1., vmax=2.)
-#plt.title("Signal")
-#plt.colorbar()
-
-
-#plt.matshow(cleaned_cube4[0,:,:], vmin=-1., vmax=2.)
-#plt.title("FG-subtracted (4 modes)")
-#plt.colorbar()
-##plt.show()
-
-#plt.matshow(cleaned_cube4_hp[0,:,:].real, vmin=-1., vmax=2.)
-#plt.title("FG-subtracted (4 modes, high-pass)")
-#plt.colorbar()
-
-#plt.matshow(cleaned_cube8[0,:,:], vmin=-1., vmax=2.)
-#plt.title("FG-subtracted (8 modes)")
-#plt.colorbar()
-
-
 # Power spectra
 sig_k, sig_pk, sig_stddev = box.binned_power_spectrum(delta_x=signal_cube)
 proc4_k, proc4_pk, proc4_stddev = box.binned_power_spectrum(delta_x=cleaned_cube4)
@@ -202,5 +179,4 @@ plt.xscale('log')
 plt.yscale('log')
 plt.show()
 
-#sys.exit(0)
 
