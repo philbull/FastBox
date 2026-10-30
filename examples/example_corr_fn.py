@@ -8,7 +8,6 @@ from fastbox.box import CosmoBox, default_cosmo
 from numpy import fft
 import pyccl as ccl
 from nbodykit.lab import ArrayMesh
-#from nbodykit.algorithms.paircount_tpcf.tpcf import SimulationBox2PCF
 from nbodykit.algorithms.fftcorr import FFTCorr
 from nbodykit.algorithms.fftpower import FFTPower
 import time
@@ -26,7 +25,6 @@ box.realise_velocity()
 
 # Log-normal field and power spectrum
 delta_log = box.lognormal(box.delta_x)
-#logn_k, logn_pk, logn_stddev = box.binned_power_spectrum(delta_x=delta_log)
 
 
 # Convert to nbodykit mesh
