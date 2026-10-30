@@ -124,14 +124,6 @@ class BeamModel(object):
         # Initialise smoothed field
         field_sm = np.zeros_like(field_x)
         
-        # Function to do beam convolution of a single frequency slice 
-        #def conv(i):
-        #    return convolve2d(field_x[:,:,i], beam[:,:,i], 
-        #                      mode='same', boundary='wrap', fillvalue=0.)
-        
-        # Loop over frequency slices (in parallel if possible)
-        #with Pool(nproc) as pool:
-        #    field_sm = np.array( pool.map(conv, np.arange(field_x.shape[-1])) )
         
         # Loop over frequencies
         for i in range(field_x.shape[-1]):
