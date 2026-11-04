@@ -183,9 +183,9 @@ def pca_filter(field, nmodes, fit_powerlaw=False, return_filter=False):
     
     # Return filtered field (and optionally the filter operator + amplitudes)
     if return_filter:
-        return cleaned_field, U_fg, fg_amps
+        return cleaned_field.real, U_fg, fg_amps
     else:
-        return cleaned_field
+        return cleaned_field.real
 
 
 
@@ -498,7 +498,7 @@ def nmf_filter(field, nmodes, return_filter=False, **kwargs_nmf):
     x = d
 
     # Build NMF model and get amplitudes for each mode per pixel
-    transformer = NMF(n_components=nmodes, **kwargs_nmf)
+    transformer = NMF(n_components=nmodes,init='random', **kwargs_nmf)
     x_trans = transformer.fit_transform(x.T)
 
     # Construct foreground operator
