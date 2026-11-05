@@ -413,11 +413,11 @@ class CosmoBox(object):
         return dx
     
     
-    def redshift_space_density(self, delta_x=None, velocity_z=None, sigma_nl=0., 
+    def interpolated_rsd_density(self, delta_x=None, velocity_z=None, sigma_nl=0., 
                                method='linear'):
         """
         Remap the real-space density field to redshift-space using the line-of-
-        sight velocity field.
+        sight velocity field. This provides better results in small scales when comparing to linear_rsd_density
         
         Parameters:
             delta_x (array_like, optional):
@@ -434,11 +434,6 @@ class CosmoBox(object):
                 Interpolation method to use when performing remapping, using the 
                 `scipy.interpolate.griddata` function. Default: 'linear'.
         """
-        import warnings
-        warnings.warn(
-            "Method deprecated. Use linear_rsd_density instead ", 
-            category=DeprecationWarning, 
-            stacklevel=2)
         # Expansion rate (km/s/Mpc)
         Hz = 100.*self.cosmo['h'] * ccl.h_over_h0(self.cosmo, self.scale_factor)
 
