@@ -57,7 +57,7 @@ def test_lognormal_box():
     assert np.all(delta_log >= -1.) # delta_log >= -1
     
 
-def test_box_redshift_space_density():
+def test_box_interpolate_rsd_density():
     """Check that a redshift-space density field can be generated."""
     
     # Realise Gaussian box and velocity field
@@ -69,7 +69,7 @@ def test_box_redshift_space_density():
     
     # Get redshift-space density field
     vel_z = np.fft.ifftn(box.velocity_k[2]).real
-    delta_s = box.redshift_space_density(delta_x=box.delta_x, velocity_z=vel_z, 
+    delta_s = box.interpolate_rsd_density(delta_x=box.delta_x, velocity_z=vel_z, 
                                          sigma_nl=200., method='linear')
     
     # Check that redshift-space density field is valid
