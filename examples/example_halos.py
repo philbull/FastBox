@@ -4,10 +4,9 @@ import numpy as np
 import pylab as plt
 from fastbox.box import CosmoBox, default_cosmo
 from fastbox.halos import HaloDistribution
+import fastbox.power as power
+from fastbox.tracers import GalaxyTracer
 
-from nbodykit.lab import ArrayMesh, ArrayCatalog
-from nbodykit.algorithms.fftcorr import FFTCorr
-from nbodykit.algorithms.fftpower import FFTPower
 
 # Gaussian box
 np.random.seed(10)
@@ -22,52 +21,34 @@ halos = HaloDistribution(box, mass_range=(1e12, 1e15), mass_bins=10)
 Nhalos = halos.halo_count_field(box.delta_x, nbar=1e-3, bias=1.)
 halo_cat = halos.realise_halo_catalogue(Nhalos, scatter=True, scatter_type='uniform')
 
-# Project catalogue onto mesh
-array_cat = ArrayCatalog({'Position': halo_cat})
-mesh_cat = array_cat.to_mesh(Nmesh=box.N, BoxSize=(box.Lx, box.Ly, box.Lz),
-                             window='tsc', compensated=True)
 
 
-# Put density field onto mesh
-mesh_delta = ArrayMesh(box.delta_x, BoxSize=(box.Lx, box.Ly, box.Lz))
+power_obj = power.Power(box)
+gal_tracer = GalaxyTracer(box=box, vol_density=None, bias=None)
+mesh = gal_tracer._assign_ngp(halo_cat)
 
-# Calculate power spectra
-pspec1 = FFTPower(first=mesh_cat, mode='1d', second=None, los=[0, 0, 1], Nmu=5)
-pspec1.run()
-pspec2 = FFTPower(first=mesh_delta, mode='1d', second=None, los=[0, 0, 1], Nmu=5)
-pspec2.run()
-pspec3 = FFTPower(first=mesh_delta, mode='1d', second=mesh_cat, los=[0, 0, 1], Nmu=5)
-pspec3.run()
+k, pspec1, _ = power_obj.estimate_power_spectrum(mesh)
+k, pspec2, _ = power_obj.estimate_power_spectrum(box.delta_x)
+k, pspec3, _ = power_obj.estimate_power_spectrum(delta_x1=box.delta_x,delta_x2=mesh)
 
-print("-"*50)
-print("Halo-Halo")
-print("-"*50)
-for k in pspec1.attrs:
-    print("%s = %s" %(k, str(pspec1.attrs[k])))
 
-print("-"*50)
-print("Delta-Delta")
-print("-"*50)
-for k in pspec2.attrs:
-    print("%s = %s" %(k, str(pspec2.attrs[k])))
 
 # Plot power spectra
 plt.subplot(111)
-plt.plot(pspec1.power['k'], pspec1.power['power'].real, 'r.', 
+plt.plot(k, pspec1, 'r.', 
          ls='solid', label="hh")
-plt.plot(pspec2.power['k'], pspec2.power['power'].real, 'bx', 
-         ls='solid', label="$\delta\delta$ lin")
-plt.plot(pspec3.power['k'], pspec3.power['power'].real, 'y+', 
-         ls='solid', label="$h\delta$")
+plt.plot(k, pspec2, 'bx', 
+         ls='solid', label=r"$\delta\delta$ lin")
+plt.plot(k, pspec3, 'y+', 
+         ls='solid', label=r"$h\delta$")
 plt.yscale('log')
-plt.ylim((1e2, 1e5))
+#plt.ylim((1e2, 1e5))
 plt.legend(loc='upper right', frameon=False)
 
 plt.show()
 
-exit()
 
-
+#plot density field with halos
 plt.figure()
 plt.subplot(111)
 plt.matshow(box.delta_x[0,:,:], vmin=-1., vmax=5., cmap='cividis', fignum=False)
@@ -76,7 +57,7 @@ plt.colorbar()
 
 idxs = np.where(np.logical_and(halo_cat[:,2] >= 0., halo_cat[:,2] < 2.*box.Lz/box.N))
 _x, _y, _z = halo_cat[idxs].T
-plt.plot(_x*box.N/box.Lx, _y*box.N/box.Ly, marker='.', color='r', ms=3., ls='none')
+plt.plot(_x*box.N/box.Lx, _y*box.N/box.Ly, marker='.', color='r', ms=0.05, ls='none')
 
 print("Min/max:", np.min(halo_cat), np.max(halo_cat))
 

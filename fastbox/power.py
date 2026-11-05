@@ -760,7 +760,7 @@ class Power(object):
         Returns:
         --------
         r_c, xi_1d : ndarray
-            The binned radial distances, 2PCF values, and errors on the mean.
+            The binned radial distances, 2PCF values.
         """
         # 1. Force the mean to zero to isolate the fluctuations (clustering)
         # This prevents the massive k=0 mode from destroying the signal.
