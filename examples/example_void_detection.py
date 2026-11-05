@@ -17,7 +17,7 @@ box.realise_velocity()
 # Get redshift-space density field
 vel_z = fft.ifftn(box.velocity_k[2]).real
 
-delta_s = box.redshift_space_density(delta_x=box.delta_x, velocity_z=vel_z, 
+delta_s = box.interpolated_rsd_density(delta_x=box.delta_x, velocity_z=vel_z, 
                                      sigma_nl=200., method='linear')
 
 plt.matshow(delta_s[40], vmin=-1., vmax=2., cmap='cividis')
@@ -40,7 +40,7 @@ regions = np.unique(region_labels)
 avg_delta = np.zeros(regions.shape)
 accepted_regions = []
 for i, r in enumerate(regions):
-    if i % 100 == 0: print("    Region", i)
+    if i % 2000 == 0: print("    Region", i)
     avg_delta[i] = np.mean( delta_s[np.where(region_labels==r)] )
     
     
