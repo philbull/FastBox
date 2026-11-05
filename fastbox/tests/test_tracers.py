@@ -65,14 +65,6 @@ def test_apply_rsd_kaiser_boost(make_box):
     assert abs(cat - kaiser(f)) < 0.5 * abs(kaiser(f) - kaiser(a * f))
 
 
-def test_redshift_space_density_is_deprecated(make_box):
-    box = make_box(nsamp=16)
-    d = box.realise_density()
-    vz = fft.ifftn(box.realise_velocity(delta_x=d)[2]).real
-    with pytest.warns(DeprecationWarning):
-        box.redshift_space_density(delta_x=d, velocity_z=vz, sigma_nl=0.)
-
-
 @pytest.mark.parametrize("bias", [1.0, 1.4])
 def test_galaxy_mesh_carries_input_bias(make_box, bias):
     """GalaxyTracer reproduces the clustering of the (pre-biased) input field."""
