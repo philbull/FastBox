@@ -10,7 +10,6 @@ import scipy.ndimage
 
 from .box import CosmoBox
 
-
 def generate_hi_mock(cosmo, box_scale, nsamp, redshift, sigma_nl=120.):
     """
     Generate a single mock HI brightness temperature cube.
@@ -47,10 +46,12 @@ def generate_hi_mock(cosmo, box_scale, nsamp, redshift, sigma_nl=120.):
     mock_box.realise_density()
 
     tracer = HITracer(mock_box)
-    delta_hi = mock_box.linear_rsd_density(mock_box.delta_x, bias=tracer.bias_HI(),
-                                           sigma_v=sigma_nl)
+    delta_hi = mock_box.delta_x * tracer.bias_HI()
     delta_ln = mock_box.lognormal(delta_hi)
-    return tracer.signal_amplitude() * (1. + delta_ln)
+    delta_s = mock_box.linear_rsd_density(delta_x=delta_ln.real, sigma_v=sigma_nl, fog_model='gaussian')
+    signal_cube = tracer.signal_amplitude() * (1. + delta_s)
+    
+    return signal_cube
 
 class TracerModel(object):
     
