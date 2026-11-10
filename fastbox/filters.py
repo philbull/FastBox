@@ -187,10 +187,8 @@ def pca_filter(field, nmodes, fit_powerlaw=False, return_filter=False):
     else:
         return cleaned_field.real
 
-
-
 def pca_transfer_function(data_cube, cleaned_cube, mock_fn, box,
-                          nmodes, nmocks=100, nbins=50):
+                          nmodes, nmocks=100):
     """
     Estimate the PCA signal-loss transfer function via mock signal injection,
     following the methodology of Cunnington et al. (2023) [arXiv:2302.07034].
@@ -225,12 +223,8 @@ def pca_transfer_function(data_cube, cleaned_cube, mock_fn, box,
             cleaned_cube.
 
         nmocks (int, optional):
-            Number of independent mock realisations to average over.
-
-        nbins (int, optional):
-            Number of logarithmic k-bins. Should match the value used when
-            computing the power spectrum of cleaned_cube.
-
+            Number of independent mock realisations to average over..
+        
     Returns:
         T_s (array_like):
             Individual transfer function realisations, shape (nmocks, nbins-1).
@@ -238,11 +232,12 @@ def pca_transfer_function(data_cube, cleaned_cube, mock_fn, box,
         T_m (array_like):
             Mean transfer function across all mocks, shape (nbins-1,).
     """
-    bins = np.logspace(np.log10(box.kmin), np.log10(box.kmax), nbins)
-    bin_idxs = np.digitize(box.k.flatten(), bins)
+    from fastbox.power import Power
+    
+    power_obj = Power(box)
 
-    T_s = np.zeros((nmocks, nbins - 1))
-
+    T_s = []
+    
     for i in tqdm(range(nmocks), desc="Transfer function mocks"):
         mock_s = mock_fn()
 
@@ -252,18 +247,15 @@ def pca_transfer_function(data_cube, cleaned_cube, mock_fn, box,
         X_m_clean = cleaned_inj - cleaned_cube
 
         # Cross-power of X_m_clean and mock_s (unbiased numerator)
-        dk_Xm_clean = fft.fftn(X_m_clean)
-        dk_mock_s = fft.fftn(mock_s)
-        cross_pk = (dk_Xm_clean * np.conj(dk_mock_s)).real / box.boxfactor
-        P_num = np.array([np.mean(cross_pk.flatten()[bin_idxs == j])
-                          for j in range(bins.size)])[1:]
-
+        _, P_num, _ = power_obj.estimate_power_spectrum(delta_x1 = X_m_clean, delta_x2 = mock_s)
         # Auto-power of mock_s (denominator)
-        _, P_denom, _ = box.binned_power_spectrum(delta_x=mock_s, nbins=nbins)
+        _, P_den, _ = power_obj.estimate_power_spectrum(mock_s)
 
-        T_s[i] = P_num / P_denom
-
+        T_s.append(P_num/P_den)
+    T_s = np.asarray(T_s)
+    
     return T_s, np.mean(T_s, axis=0)
+
 
 
 def ica_filter(field, nmodes, return_filter=False, **kwargs_ica):
