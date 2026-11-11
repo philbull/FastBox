@@ -252,7 +252,7 @@ cross spectrum therefore falls below the model due to PCA signal loss, which the
 transfer function above corrects; on small scales it rises above the model,
 because the log-normal transform adds power that a linear model does not include.
 
-# Research Impact
+# Research Impact Statement
 
 `FastBox` simulated 21cm data cubes were used in @Irfan&Bull2021, where kernel principal component analysis was tested as an alternative to standard principal component analysis (PCA) foreground removal techniques. KPCA was found to improve recovery at intermediate-to-large cosmological scales. @Irfan2023 generated mock 21cm cubes to test PCA foreground removal in four cases of Galactic synchrotron spectral index models, including a high-resolution model they generated via a convolutional neural network (CNN). @Irfan2024 used `FastBox` mock signal and foreground cubes as inputs for pipelines focused on the removal of correlated noise.
 
