@@ -20,10 +20,11 @@ box = CosmoBox(cosmo=default_cosmo, box_scale=(2e3, 2e3, 2e3), nsamp=128,
 box.realise_density()
 
 tracer = fastbox.tracers.HITracer(box)
-delta_hi = box.linear_rsd_density(box.delta_x, bias=tracer.bias_HI(),
-                                  sigma_v=120.)
+delta_hi = box.delta_x * tracer.bias_HI()
 delta_ln = box.lognormal(delta_hi)
-signal_cube = tracer.signal_amplitude() * (1. + delta_ln)
+
+delta_s = box.linear_rsd_density(delta_x=delta_ln.real, sigma_v=120., fog_model='gaussian')
+signal_cube = tracer.signal_amplitude() * (1. + delta_s)
 
 print("Step 1: simulation box done")
 
@@ -68,8 +69,7 @@ mock_fn = lambda: fastbox.tracers.generate_hi_mock(default_cosmo,
                                                    box_scale=(2e3, 2e3, 2e3),
                                                    nsamp=128, redshift=0.8)
 T_s, T_m = fastbox.filters.pca_transfer_function(data_cube, cleaned_pca, mock_fn,
-                                                 box, nmodes=3, nmocks=20,
-                                                 nbins=50)
+                                                 box, nmodes=3, nmocks=20)
 print("Step 3b: transfer function done")
 
 # ---------------------------------------------------------------------------
@@ -103,44 +103,46 @@ print("Figure 1 saved: figures/field_slice.pdf")
 # ---------------------------------------------------------------------------
 # Figure 2: power spectra
 # ---------------------------------------------------------------------------
-sig_k,  sig_pk,  sig_err  = box.binned_power_spectrum(delta_x=signal_cube,   nbins=50)
-pca_k,  pca_pk,  pca_err  = box.binned_power_spectrum(delta_x=cleaned_pca,   nbins=50)
-ica_k,  ica_pk,  ica_err  = box.binned_power_spectrum(delta_x=cleaned_ica,   nbins=50)
 power = Power(box)
-km = np.logspace(-4, 1, 2000)
-_, pkm = power.predict_matter_power_spectrum(km)
+sig_k,  sig_pk,  sig_err = power.estimate_power_spectrum(signal_cube+noise_cube)
+pca_k,  pca_pk,  pca_err = power.estimate_power_spectrum(cleaned_pca)
+ica_k,  ica_pk,  ica_err = power.estimate_power_spectrum(cleaned_ica)
+_,  noise_pk,           _= power.estimate_power_spectrum(noise_cube)
+
+
+
+km, pkm = power.predict_matter_power_spectrum(pca_k)
 th_k, th_pk, _ = power.predict_hi_power_spectrum(km, pkm, bias=tracer.bias_HI(),
                                                  Tb=tracer.signal_amplitude(),
                                                  sigdeg=0., sigma_nl=120.)
 
 fig, ax = plt.subplots(figsize=(8, 5))
 
-ax.plot(th_k, th_pk, 'k-', lw=1.5, label="Theoretical $P(k)$", zorder=5)
+ax.plot(th_k, th_pk+noise_pk, 'k-', lw=1.5, label="Theoretical prediction", zorder=5)
 ax.errorbar(sig_k, sig_pk, yerr=sig_err, color='steelblue', fmt='.',
-            ms=5, capsize=2, label="True HI $P(k)$", zorder=4)
-ax.errorbar(pca_k, pca_pk, yerr=pca_err, color='tomato', fmt='x',
-            ms=5, capsize=2, label="PCA-cleaned $P(k)$", zorder=3)
-ax.errorbar(ica_k, ica_pk, yerr=ica_err, color='goldenrod', fmt='s',
-            ms=4, capsize=2, label="ICA-cleaned $P(k)$", zorder=2, alpha=0.8)
+            ms=5, capsize=2, label="True HI + noise", zorder=4)
+ax.errorbar(pca_k+0.001, pca_pk, yerr=pca_err, color='tomato', fmt='x',
+            ms=5, capsize=2, label="PCA-cleaned", zorder=3)
+ax.errorbar(ica_k+0.0005*ica_k, ica_pk, yerr=ica_err, color='goldenrod', fmt='s',
+            ms=4, capsize=2, label="ICA-cleaned", zorder=2, alpha=0.8)
 
 # T(k) is only meaningful where it is positive and finite: the lowest-k bins
 # hold few modes and can scatter negative.
 tf_ok = np.isfinite(T_m) & (T_m > 0.)
-ax.errorbar(pca_k[tf_ok], pca_pk[tf_ok] / T_m[tf_ok],
+ax.errorbar(pca_k[tf_ok]+0.0005, pca_pk[tf_ok] / T_m[tf_ok],
             yerr=pca_err[tf_ok] / T_m[tf_ok], color='mediumorchid', fmt='d',
             ms=4, capsize=2, label="PCA-cleaned, $T(k)$-corrected", zorder=6)
 print("    T(k) usable in %d / %d bins" % (tf_ok.sum(), T_m.size))
 
 ax.set_xscale('log')
 ax.set_yscale('log')
-ax.set_xlim(1e-3, 1.)
-ax.set_ylim(1e1, 1e5)
-ax.set_xlabel(r"$k$ [$\mathrm{Mpc}^{-1}$]", fontsize=14)
+#ax.set_xlim(1e-3, 1.)
+#ax.set_ylim(1e1, 1e5)
+ax.set_xlabel(r"$k$ [$\mathrm{Mpc}^{-1}$]", fontsize=12)
 ax.set_ylabel(r"$P(k)$ [$\mathrm{mK}^2\,\mathrm{Mpc}^3$]", fontsize=14)
-ax.legend(frameon=False, fontsize=12)
-ax.tick_params(which='both', direction='in', top=True, right=True)
-
-fig.tight_layout()
+ax.legend(frameon=False, fontsize=14,loc='lower center')
+ax.tick_params(which='both', direction='in', labelsize=14, top=True, right=True)
+ax.grid()
 fig.savefig("figures/power_spectrum.pdf", bbox_inches='tight', dpi=150)
 fig.savefig("figures/power_spectrum.png", bbox_inches='tight', dpi=150)
 print("Figure 2 saved: figures/power_spectrum.pdf")
