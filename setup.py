@@ -11,7 +11,7 @@ setup_args = {
     'author': 'Phil Bull',
     'url': 'https://github.com/philbull/FastBox',
     'license': 'MIT',
-    'version': '0.0.9',
+    'version': '1.0.0',
     'description': 'Fast simulations of cosmological density fields, subject to anisotropic filtering, biasing, redshift-space distortions, foregrounds etc.',
     'python_requires': '>=3.10',  # oldest version with pyccl wheels
     'packages': ['fastbox'],
