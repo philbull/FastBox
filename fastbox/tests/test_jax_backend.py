@@ -8,11 +8,19 @@ jax = pytest.importorskip("jax")
 import jax.numpy as jnp
 from fastbox import jax_backend as fbj
 
+# jax.experimental.enable_x64 was removed in newer JAX; jax.enable_x64
+# replaces it. Use whichever this JAX provides.
+if hasattr(jax, "enable_x64"):
+    def enable_x64():
+        return jax.enable_x64(True)
+else:
+    from jax.experimental import enable_x64
+
 
 def test_gaussian_density_normalisation_and_zero_mode(make_box):
     box = make_box(box_scale=(305., 470., 640.), nsamp=(9, 10, 11))
     pk = box.matter_power_grid(linear=True)
-    with jax.experimental.enable_x64():
+    with enable_x64():
         white_noise = jax.random.normal(jax.random.key(0), pk.shape)
         density = jax.jit(fbj.gaussian_density)(white_noise, pk, box.boxfactor)
         # The legacy sampler keeps the real part of the inverse FFT of
@@ -54,7 +62,7 @@ def test_rsd_beam_power_parity_and_gradients(make_box):
         return jnp.nansum(forward(*params)[1])
 
     params = np.array([1.6, 115.0, 0.8])
-    with jax.experimental.enable_x64():
+    with enable_x64():
         for got, expected in zip(jax.jit(forward)(*params), reference(*params)):
             np.testing.assert_allclose(got, expected, rtol=1e-12)
         derivative = jax.jit(jax.grad(loss))(params)
@@ -80,7 +88,7 @@ def test_weighted_cross_power_and_empty_shells(make_box, monkeypatch):
     bins = fbj.prepare_power_bins(box)
     expected = Power(box).estimate_weighted_power_spectrum(u, v, w1, w2)
     assert np.any(np.isnan(expected[1]))
-    with jax.experimental.enable_x64():
+    with enable_x64():
         estimate = jax.jit(fbj.estimate_power_spectrum)
         got = estimate(u, bins, box.boxfactor, v, w1, w2)
         np.testing.assert_allclose(got, expected, rtol=1e-12)
