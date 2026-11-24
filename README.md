@@ -47,6 +47,42 @@ If you want to use katbeam model:
 pip install git+https://github.com/ska-sa/katbeam.git
 ```
 
+## Differentiable Gaussian-box pipeline
+
+Install the optional JAX extra with `pip install '.[jax]'`. Prepare the fixed
+box geometry and pyCCL inputs outside `jax.jit` and `jax.grad`. The kernels
+accept numerical inputs, so a differentiable cosmology can also supply the
+power grid and the background values in `RSDInputs`.
+
+```python
+import jax
+import jax.numpy as jnp
+from fastbox.box import CosmoBox, default_cosmo
+from fastbox import jax_backend as fbj
+
+box = CosmoBox(default_cosmo, redshift=0.8, nsamp=16, realise_now=False)
+pk = box.matter_power_grid(linear=True)
+rsd = fbj.prepare_rsd(box)
+bins = fbj.prepare_power_bins(box)
+ang_x, ang_y = box.pixel_array()
+white_noise = jax.random.normal(jax.random.key(0), box.k.shape)
+
+def statistic(bias, sigma_v, beam_width):
+    field = fbj.gaussian_density(white_noise, pk, box.boxfactor)
+    field = fbj.linear_rsd_density(field, rsd, bias=bias, sigma_v=sigma_v)
+    field = fbj.convolve_gaussian_beam(field, ang_x, ang_y, beam_width)
+    _, power, _ = fbj.estimate_power_spectrum(field, bins, box.boxfactor)
+    return jnp.nansum(power)
+
+gradient = jax.jit(jax.grad(statistic, argnums=(0, 1, 2)))
+d_bias, d_sigma_v, d_beam = gradient(1.6, 120.0, 1.0)
+```
+
+Keep the white-noise draw fixed when computing pathwise gradients. Use
+`JAX_ENABLE_X64=1` when comparing against the NumPy implementation in double
+precision. The catalogue, interpolated RSD, and foreground-cleaning routines
+use the existing NumPy/SciPy paths.
+
 ## Current features
 
  - Gaussian and log-normal density fields for any cosmology

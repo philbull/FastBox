@@ -25,7 +25,10 @@ setup_args = {
         'tqdm',
         'pyccl'
     ],
-    'extras_require': {'fgextras': ['healpy', 'lmfit', 'multiprocessing', 'GPy']},
+    'extras_require': {
+        'fgextras': ['healpy', 'lmfit', 'multiprocessing', 'GPy'],
+        'jax': ['jax>=0.4.35'],
+    },
     'scripts': ['scripts/get_planck_maps.sh'],
     'include_package_data': True,
     'zip_safe': False

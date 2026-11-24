@@ -29,6 +29,10 @@ class Power(object):
         )
         return k_fundamental, k_nyquist
 
+    def _power_bin_edges(self):
+        k_min, k_nyquist = self._isotropic_k_range()
+        return np.arange(k_min, k_nyquist + k_min, k_min)
+
     def get_window_correction_grid(self, method=None):
         """
         Calculates the 3D squared window function |W(k)|^2 for mass assignment correction.
@@ -242,10 +246,7 @@ class Power(object):
         # ---------------------------------------------------------
         # K-BINNING
         # ---------------------------------------------------------
-        k_min, k_nyq = self._isotropic_k_range()
-        k_bin = k_min
-        
-        bins = np.arange(k_min, k_nyq + k_bin, k_bin)
+        bins = self._power_bin_edges()
         kc = 0.5 * (bins[1:] + bins[:-1])
         
         vals = np.zeros(kc.size)

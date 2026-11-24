@@ -157,6 +157,15 @@ class CosmoBox(object):
                                     + (self.Kz/self.Lz)**2.)
     
     
+    def matter_power_grid(self, linear=False, redshift=None):
+        """Evaluate the matter power spectrum (Mpc^3) on the box's FFT grid."""
+        if redshift is None:
+            redshift = self.redshift
+        scale_factor = 1. / (1. + redshift)
+        matter_power = ccl.linear_matter_power if linear else ccl.nonlin_matter_power
+        pk = matter_power(self.cosmo, k=self.k.ravel(), a=scale_factor)
+        return np.nan_to_num(pk.reshape(self.k.shape))
+
     def realise_density(self, linear=False, redshift=None, inplace=True):
         """
         Create realisation of the matter power spectrum by randomly sampling 
@@ -185,16 +194,7 @@ class CosmoBox(object):
         # Get redshift
         if redshift is None:
             redshift = self.redshift
-        scale_factor = 1. / (1. + redshift)
-        
-        # Calculate matter power spectrum
-        k = self.k.flatten()
-        if linear:
-            pk = ccl.linear_matter_power(self.cosmo, k=k, a=scale_factor)
-        else:
-            pk = ccl.nonlin_matter_power(self.cosmo, k=k, a=scale_factor)
-        pk = np.reshape(pk, np.shape(self.k))
-        pk = np.nan_to_num(pk) # Remove NaN at k=0 (and any others...)
+        pk = self.matter_power_grid(linear=linear, redshift=redshift)
         
         # Normalise the power spectrum properly (factor of volume, and norm. 
         # factor of 3D DFT)
