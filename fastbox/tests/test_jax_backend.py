@@ -98,3 +98,67 @@ def test_weighted_cross_power_and_empty_shells(make_box, monkeypatch):
             return jnp.nansum(power) + jnp.nansum(errors)
 
         assert np.all(np.isfinite(jax.grad(loss)(np.zeros_like(u))))
+
+
+def _shell_mean(values, bins):
+    """Average a gridded quantity over each populated power-spectrum shell."""
+    sums = np.bincount(bins.shell_ids, weights=np.ravel(values),
+                       minlength=bins.counts.size)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        return (sums / bins.counts)[1:-1]
+
+
+def test_gaussian_density_recovers_input_power(make_box):
+    # Averaged over realisations, the measured power matches the input P(k)
+    # in every shell. The NumPy sampler draws different fields, but its
+    # power must match the same expectation.
+    box = make_box(box_scale=(600., 700., 800.), nsamp=(24, 25, 26))
+    pk = box.matter_power_grid(linear=True)
+    bins = fbj.prepare_power_bins(box)
+    expected = _shell_mean(pk, bins)
+    nreal = 20
+
+    @jax.jit
+    def measured(key):
+        white_noise = jax.random.normal(key, pk.shape)
+        field = fbj.gaussian_density(white_noise, pk, box.boxfactor)
+        return fbj.estimate_power_spectrum(field, bins, box.boxfactor)[1]
+
+    with enable_x64():
+        keys = jax.random.split(jax.random.key(1), nreal)
+        jax_power = np.mean([measured(key) for key in keys], axis=0)
+
+    np.random.seed(2)
+    power = Power(box)
+    numpy_power = np.mean(
+        [power.estimate_power_spectrum(
+            box.realise_density(linear=True, inplace=False))[1]
+         for _ in range(nreal)],
+        axis=0,
+    )
+
+    # A shell of N modes holds about N/2 independent complex amplitudes
+    # (k and -k are conjugate), so its mean power over nreal draws has a
+    # relative scatter of about sqrt(2 / (N nreal)).
+    populated = bins.counts[1:-1] > 0
+    sigma = np.sqrt(2.0 / (bins.counts[1:-1][populated] * nreal))
+    for got in (jax_power, numpy_power):
+        ratio = got[populated] / expected[populated]
+        assert np.all(np.abs(ratio - 1.0) < 5.0 * sigma)
+
+
+def test_gaussian_density_amplitude_gradient(make_box):
+    # Scaling P(k) by A scales the field by sqrt(A), so the derivative of
+    # the field variance with respect to A at A = 1 equals the variance.
+    box = make_box(box_scale=(305., 470., 640.), nsamp=(9, 10, 11))
+    pk = box.matter_power_grid(linear=True)
+    with enable_x64():
+        white_noise = jax.random.normal(jax.random.key(3), pk.shape)
+
+        def variance(amplitude):
+            field = fbj.gaussian_density(white_noise, amplitude * pk,
+                                         box.boxfactor)
+            return jnp.mean(field**2)
+
+        value, slope = jax.jit(jax.value_and_grad(variance))(1.0)
+        np.testing.assert_allclose(slope, value, rtol=1e-12)

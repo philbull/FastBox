@@ -30,15 +30,18 @@ merging into `main`.
       `predict_galaxy_power_spectrum` and `predict_cross_spectrum` instead
       (they already take a tabulated P(k)).
 - [ ] **Should the NumPy density sampler match?** `jax_backend.gaussian_density`
-      filters real white noise, which gives a Hermitian field.
-      `CosmoBox.realise_density` keeps the real part of the inverse FFT of
-      non-Hermitian complex draws. The two have the same power spectrum on
-      average, but:
-      - the same seed gives different fields in the two paths;
-      - the stored `box.delta_k` is not the FFT of `box.delta_x`.
+      filters real white noise. `CosmoBox.realise_density` keeps the real
+      part of the inverse FFT of independent complex draws, then stores
+      `delta_k = fft(delta_x)`. Both give the same statistics (checked by
+      `test_gaussian_density_recovers_input_power`), but the same seed
+      gives different fields in the two paths.
 
-      Change the NumPy sampler to match? That changes existing
-      realisations for a given seed.
+      Changing the NumPy sampler would change every existing seeded
+      realisation, including the paper figures
+      (`scripts/make_paper_figures.py` uses `np.random.seed(41)`).
+      Suggestion: leave it unchanged. If NumPy-JAX field matching is ever
+      needed, add an optional `white_noise=` argument to `realise_density`
+      that leaves the default unchanged.
 - [ ] **Cosmology gradients.** pyCCL is not differentiable. Options:
       leave it out of scope (fixed cosmology, as now), use jax-cosmo, or
       use an emulator. The kernels already take P(k), f, aH as inputs, so
@@ -72,7 +75,15 @@ merging into `main`.
       tests use float64. State which one users should use for inference.
 - [ ] **Review `jax_backend.py` by hand.** The patch is machine-generated.
       Parity and finite-difference tests pass, but the code still needs
-      the normal review.
+      the normal review. One kernel at a time:
+  - [x] `gaussian_density`: normalisation and statistics correct. Added a
+        test that the mean power over 20 realisations matches the input
+        P(k) in every shell (for both samplers), and an exact gradient test
+        (d var/dA = var when P is scaled by A). Docstring now states the
+        P(k) symmetry requirement and the difference from `realise_density`.
+  - [ ] `linear_rsd_density`
+  - [ ] `convolve_gaussian_beam`
+  - [ ] `estimate_power_spectrum`
 - [ ] **JOSS paper.** Decide whether the paper's Software Design section
       mentions the JAX backend, or leave it out until it is merged.
 

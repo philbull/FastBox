@@ -53,7 +53,13 @@ def gaussian_density(white_noise, pk, boxfactor):
 
     Supply a real draw from ``jax.random.normal`` or a fixed noise field.
     Use P(0) = 0 for a zero-mean density contrast. Zero-power modes have
-    zero gradients by convention.
+    zero gradients by convention. ``pk`` must take the same value at k and
+    -k (true for any function of |k|, e.g. ``CosmoBox.matter_power_grid``);
+    otherwise the field is not real and the imaginary part is discarded.
+
+    The field has the same statistics as ``CosmoBox.realise_density``, but
+    the two draw their random numbers differently, so no seed reproduces a
+    NumPy realisation here.
     """
     white_noise = jnp.asarray(white_noise)
     pk = jnp.asarray(pk)
