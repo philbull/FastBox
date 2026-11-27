@@ -57,10 +57,11 @@ merging into `main`.
 
 ## To do before merging
 
-- [ ] **CI.** `unit-tests.yaml` installs `.` without JAX, and
+- [x] **CI.** `unit-tests.yaml` installs `.` without JAX, and
       `test_jax_backend.py` skips itself when JAX is missing. CI stays green
       while never running the JAX tests. Install `.[jax]` in at least one
-      matrix job.
+      matrix job. *Done: the Python 3.13 job installs `.[jax]` and fails if
+      JAX is missing; the 3.10 job still runs without JAX.*
 - [ ] **Docs.** Add `docs/jax_backend.md` to match the other modules, and
       check that the strict Read the Docs build works. JAX may need adding
       to `docs/requirements.txt` or mocking.

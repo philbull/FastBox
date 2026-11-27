@@ -9,13 +9,18 @@ on:
 
 jobs:
   tests:
-    name: Python ${{ matrix.python-version }}
+    name: Python ${{ matrix.python-version }}${{ matrix.extras && ' + JAX' || '' }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         # Oldest and newest Python versions that pyccl publishes wheels for
         python-version: ["3.10", "3.13"]
+        # Install the optional JAX backend on the newest Python only, so the
+        # other job still checks that FastBox works without JAX.
+        include:
+          - python-version: "3.13"
+            extras: "[jax]"
     env:
       MPLBACKEND: Agg
     steps:
@@ -29,7 +34,13 @@ jobs:
       - name: Install FastBox and test tools
         run: |
           python -m pip install --upgrade pip
-          pip install . pytest pytest-cov
+          pip install ".${{ matrix.extras }}" pytest pytest-cov
+
+      # test_jax_backend.py skips itself when JAX is missing, so fail here
+      # instead if the JAX job did not actually get JAX.
+      - name: Check JAX is installed
+        if: matrix.extras == '[jax]'
+        run: python -c "import jax; print('JAX', jax.__version__)"
 
       - name: Run tests with coverage
         run: |
